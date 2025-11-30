@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 interface AudioWaveformProps {
   isPlaying?: boolean;
   isRecording?: boolean;
+  audioLevel?: number;
   className?: string;
   barCount?: number;
 }
@@ -10,6 +11,7 @@ interface AudioWaveformProps {
 export default function AudioWaveform({
   isPlaying = false,
   isRecording = false,
+  audioLevel = 0.5,
   className,
   barCount = 40,
 }: AudioWaveformProps) {

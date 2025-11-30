@@ -1,103 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import TranscriptEditor, { type TranscriptParagraph } from "@/components/TranscriptEditor";
 import ActaPreview from "@/components/ActaPreview";
 import AudioPlayer from "@/components/AudioPlayer";
+import type { Meeting } from "@shared/schema";
 
 interface ReviewEditScreenProps {
   buildingName: string;
+  meeting?: Meeting | null;
   onBack?: () => void;
   onGenerate?: () => void;
+  isGenerating?: boolean;
 }
-
-// todo: remove mock data
-const mockTranscript: TranscriptParagraph[] = [
-  {
-    id: "1",
-    timestamp: "00:00",
-    speaker: "Presidente",
-    text: "Buenos días a todos. Damos comienzo a la reunión ordinaria de la comunidad de propietarios del edificio Alameda 42.",
-  },
-  {
-    id: "2",
-    timestamp: "00:15",
-    speaker: "Secretario",
-    text: "Confirmo que hay quórum suficiente con 12 propietarios presentes que representan el 65% de las cuotas de participación.",
-  },
-  {
-    id: "3",
-    timestamp: "00:32",
-    speaker: "Presidente",
-    text: "Perfecto. El primer punto del orden del día es la aprobación del acta de la reunión anterior celebrada el 15 de octubre.",
-  },
-  {
-    id: "4",
-    timestamp: "00:48",
-    speaker: "Vecino 1",
-    text: "Propongo aprobar el acta tal como está redactada. No tengo ninguna objeción.",
-  },
-  {
-    id: "5",
-    timestamp: "01:02",
-    speaker: "Presidente",
-    text: "¿Alguien más tiene algún comentario sobre el acta anterior? Viendo que no hay objeciones, se aprueba por unanimidad.",
-  },
-  {
-    id: "6",
-    timestamp: "01:18",
-    speaker: "Secretario",
-    text: "Queda constancia de la aprobación unánime del acta de la reunión del 15 de octubre.",
-  },
-];
-
-const mockActaData = {
-  buildingName: "Comunidad de Propietarios Edificio Alameda 42",
-  address: "Calle Alameda 42, 28001 Madrid",
-  date: "28 de noviembre de 2025",
-  time: "18:30",
-  attendees: [
-    "Juan García (Presidente)",
-    "María López (Secretaria)",
-    "Antonio Martínez",
-    "Carmen Ruiz",
-    "Pedro Sánchez",
-    "Ana Fernández",
-  ],
-  agenda: [
-    "Lectura y aprobación del acta anterior",
-    "Estado de cuentas y aprobación de presupuesto 2026",
-    "Reparación de la fachada",
-    "Ruegos y preguntas",
-  ],
-  resolutions: [
-    {
-      title: "Aprobación del acta de la reunión anterior",
-      approved: true,
-      votes: "Unanimidad (12 votos a favor)",
-    },
-    {
-      title: "Aprobación del presupuesto 2026",
-      approved: true,
-      votes: "Mayoría (10 votos a favor, 2 abstenciones)",
-    },
-    {
-      title: "Derrama para reparación de fachada",
-      approved: true,
-      votes: "Mayoría cualificada (11 votos a favor, 1 en contra)",
-    },
-  ],
-  observations: "Se acuerda realizar una reunión extraordinaria en enero para revisar el avance de las obras de fachada.",
-};
 
 export default function ReviewEditScreen({
   buildingName,
+  meeting,
   onBack,
   onGenerate,
+  isGenerating = false,
 }: ReviewEditScreenProps) {
-  // todo: remove mock functionality
-  const [paragraphs, setParagraphs] = useState(mockTranscript);
+  const [paragraphs, setParagraphs] = useState<TranscriptParagraph[]>([]);
+
+  useEffect(() => {
+    if (meeting?.transcript && Array.isArray(meeting.transcript)) {
+      setParagraphs(meeting.transcript as TranscriptParagraph[]);
+    }
+  }, [meeting?.transcript]);
+
+  const formattedDate = meeting?.date 
+    ? new Date(meeting.date).toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : new Date().toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+  const actaData = {
+    buildingName: meeting?.buildingName || buildingName,
+    address: "",
+    date: formattedDate,
+    time: meeting?.date 
+      ? new Date(meeting.date).toLocaleTimeString("es-ES", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "",
+    attendees: [],
+    agenda: [],
+    resolutions: [],
+    observations: meeting?.actaContent || "",
+  };
+
+  const audioDuration = meeting?.duration || 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -113,7 +74,7 @@ export default function ReviewEditScreen({
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-semibold">{buildingName}</h1>
+              <h1 className="font-semibold" data-testid="text-building-name">{buildingName}</h1>
               <p className="text-sm text-muted-foreground">
                 Revisar y editar transcripción
               </p>
@@ -122,11 +83,21 @@ export default function ReviewEditScreen({
 
           <Button
             onClick={onGenerate}
+            disabled={isGenerating || paragraphs.length === 0}
             className="gap-2 bg-accent hover:bg-accent/90 text-accent-foreground"
             data-testid="button-generate-acta"
           >
-            <FileText className="w-4 h-4" />
-            Generar Acta
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generando...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                Generar Acta
+              </>
+            )}
           </Button>
         </div>
       </header>
@@ -136,10 +107,16 @@ export default function ReviewEditScreen({
           <ScrollArea className="h-[calc(100vh-64px-120px)]">
             <div className="p-6">
               <h2 className="font-semibold mb-4">Transcripción</h2>
-              <TranscriptEditor
-                paragraphs={paragraphs}
-                onChange={setParagraphs}
-              />
+              {paragraphs.length > 0 ? (
+                <TranscriptEditor
+                  paragraphs={paragraphs}
+                  onChange={setParagraphs}
+                />
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>No hay transcripción disponible</p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -148,7 +125,15 @@ export default function ReviewEditScreen({
           <ScrollArea className="h-[calc(100vh-64px-120px)]">
             <div className="p-6">
               <h2 className="font-semibold mb-4">Vista previa del Acta</h2>
-              <ActaPreview data={mockActaData} />
+              {meeting?.actaContent ? (
+                <div className="bg-white dark:bg-background rounded-lg border p-6 prose prose-sm max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-sm" data-testid="text-acta-content">
+                    {meeting.actaContent}
+                  </pre>
+                </div>
+              ) : (
+                <ActaPreview data={actaData} />
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -156,7 +141,7 @@ export default function ReviewEditScreen({
 
       <div className="sticky bottom-0 bg-background border-t p-4">
         <div className="max-w-7xl mx-auto">
-          <AudioPlayer duration={245} />
+          <AudioPlayer duration={audioDuration} />
         </div>
       </div>
     </div>

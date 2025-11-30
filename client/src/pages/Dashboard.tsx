@@ -1,55 +1,40 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Plus } from "lucide-react";
+import { Mic, Plus, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
-import MeetingCard, { type Meeting } from "@/components/MeetingCard";
+import MeetingCard from "@/components/MeetingCard";
 import EmptyState from "@/components/EmptyState";
 import NewMeetingDialog from "@/components/NewMeetingDialog";
+import type { Meeting } from "@shared/schema";
+import type { ActaStatus } from "@/components/StatusBadge";
 
 interface DashboardProps {
   onStartRecording?: (data: { buildingName: string; attendeesCount: number }) => void;
   onMeetingClick?: (meetingId: string) => void;
 }
 
-// todo: remove mock data
-const mockMeetings: Meeting[] = [
-  {
-    id: "1",
-    buildingName: "Comunidad Edificio Alameda 42",
-    date: "28 Nov 2025",
-    attendeesCount: 12,
-    status: "enviado",
-  },
-  {
-    id: "2",
-    buildingName: "Residencial Los Jardines",
-    date: "25 Nov 2025",
-    attendeesCount: 8,
-    status: "borrador",
-  },
-  {
-    id: "3",
-    buildingName: "Torres del Parque",
-    date: "20 Nov 2025",
-    attendeesCount: 15,
-    status: "enviado",
-  },
-  {
-    id: "4",
-    buildingName: "Edificio Gran Vía 101",
-    date: "15 Nov 2025",
-    attendeesCount: 6,
-    status: "enviado",
-  },
-];
-
 export default function Dashboard({ onStartRecording, onMeetingClick }: DashboardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // todo: remove mock functionality - replace with real data fetching
-  const [meetings] = useState<Meeting[]>(mockMeetings);
 
-  const filteredMeetings = meetings.filter((m) =>
+  const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
+    queryKey: ["/api/meetings"],
+  });
+
+  const formattedMeetings = meetings.map(meeting => ({
+    id: meeting.id,
+    buildingName: meeting.buildingName,
+    date: new Date(meeting.date).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    attendeesCount: meeting.attendeesCount,
+    status: meeting.status as ActaStatus,
+  }));
+
+  const filteredMeetings = formattedMeetings.filter((m) =>
     m.buildingName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -72,11 +57,15 @@ export default function Dashboard({ onStartRecording, onMeetingClick }: Dashboar
           </Button>
         </div>
 
-        {isEmpty ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : isEmpty ? (
           <EmptyState onStartRecording={() => setDialogOpen(true)} />
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
               <h2 className="text-xl font-semibold">Actas recientes</h2>
               <Button
                 variant="ghost"

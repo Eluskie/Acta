@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Pause, Square, Play, Users, Building2 } from "lucide-react";
+import { Pause, Square, Play, Users, Building2, AlertCircle } from "lucide-react";
 import AudioWaveform from "./AudioWaveform";
 import { cn } from "@/lib/utils";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 
 interface RecordingScreenProps {
   buildingName: string;
   attendeesCount: number;
-  onStop?: (duration: number) => void;
+  onStop?: (duration: number, audioBlob: Blob | null) => void;
   onClose?: () => void;
 }
 
@@ -17,18 +18,27 @@ export default function RecordingScreen({
   onStop,
   onClose,
 }: RecordingScreenProps) {
-  const [isRecording, setIsRecording] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
-  const [duration, setDuration] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  
+  const {
+    isRecording,
+    isPaused,
+    duration,
+    audioLevel,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    error,
+  } = useAudioRecorder();
 
+  // Auto-start recording when component mounts
   useEffect(() => {
-    if (isRecording && !isPaused) {
-      const interval = setInterval(() => {
-        setDuration((d) => d + 1);
-      }, 1000);
-      return () => clearInterval(interval);
+    if (!hasStarted) {
+      setHasStarted(true);
+      startRecording();
     }
-  }, [isRecording, isPaused]);
+  }, [hasStarted, startRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -37,13 +47,36 @@ export default function RecordingScreen({
   };
 
   const handlePauseResume = useCallback(() => {
-    setIsPaused((p) => !p);
-  }, []);
+    if (isPaused) {
+      resumeRecording();
+    } else {
+      pauseRecording();
+    }
+  }, [isPaused, pauseRecording, resumeRecording]);
 
-  const handleStop = useCallback(() => {
-    setIsRecording(false);
-    onStop?.(duration);
-  }, [duration, onStop]);
+  const handleStop = useCallback(async () => {
+    const audioBlob = await stopRecording();
+    onStop?.(duration, audioBlob);
+  }, [duration, stopRecording, onStop]);
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center p-8">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
+          <AlertCircle className="w-8 h-8 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2 text-center">
+          Error de grabación
+        </h2>
+        <p className="text-muted-foreground text-center mb-8 max-w-md">
+          {error}
+        </p>
+        <Button onClick={onClose} data-testid="button-back-error">
+          Volver al inicio
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
@@ -53,10 +86,10 @@ export default function RecordingScreen({
             <Building2 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="font-semibold">{buildingName}</h2>
+            <h2 className="font-semibold" data-testid="text-building-name">{buildingName}</h2>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Users className="w-4 h-4" />
-              <span>{attendeesCount} asistentes</span>
+              <span data-testid="text-attendees-count">{attendeesCount} asistentes</span>
             </div>
           </div>
         </div>
@@ -67,8 +100,9 @@ export default function RecordingScreen({
               "w-3 h-3 rounded-full",
               isRecording && !isPaused ? "bg-recording animate-recording-pulse" : "bg-muted-foreground"
             )}
+            data-testid="indicator-recording"
           />
-          <span className="text-sm font-medium text-muted-foreground">
+          <span className="text-sm font-medium text-muted-foreground" data-testid="text-recording-status">
             {isPaused ? "En pausa" : isRecording ? "Grabando" : "Detenido"}
           </span>
         </div>
@@ -82,9 +116,13 @@ export default function RecordingScreen({
               ? "bg-recording/10 animate-recording-pulse"
               : "bg-muted"
           )}
+          style={{
+            transform: isRecording && !isPaused ? `scale(${1 + audioLevel * 0.15})` : "scale(1)",
+          }}
         >
           <AudioWaveform
             isRecording={isRecording && !isPaused}
+            audioLevel={audioLevel}
             barCount={24}
             className="w-32"
           />
@@ -103,6 +141,7 @@ export default function RecordingScreen({
             variant="outline"
             className="h-16 w-16 rounded-full"
             onClick={handlePauseResume}
+            disabled={!isRecording}
             data-testid="button-pause-resume"
           >
             {isPaused ? (
@@ -117,6 +156,7 @@ export default function RecordingScreen({
             variant="destructive"
             className="h-16 w-16 rounded-full"
             onClick={handleStop}
+            disabled={!isRecording && !isPaused}
             data-testid="button-stop-recording"
           >
             <Square className="w-6 h-6" />

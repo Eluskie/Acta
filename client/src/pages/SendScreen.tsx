@@ -1,50 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Send, FileText, Download } from "lucide-react";
+import { ArrowLeft, Send, FileText, Download, Loader2 } from "lucide-react";
 import EmailRecipients, { type Recipient } from "@/components/EmailRecipients";
 import SuccessAnimation from "@/components/SuccessAnimation";
+import type { Meeting, EmailRecipient } from "@shared/schema";
 
 interface SendScreenProps {
   buildingName: string;
   date: string;
+  meeting?: Meeting | null;
   onBack?: () => void;
-  onSend?: (recipients: Recipient[], subject: string) => void;
+  onSend?: (recipients: Array<{ id: string; name: string; email: string }>) => Promise<void>;
   onDone?: () => void;
+  isSending?: boolean;
 }
-
-// todo: remove mock data
-const mockRecipients: Recipient[] = [
-  { id: "1", email: "presidente@edificio42.es", name: "Juan García" },
-  { id: "2", email: "secretaria@edificio42.es", name: "María López" },
-  { id: "3", email: "vecino1@gmail.com", name: "Antonio Martínez" },
-];
 
 export default function SendScreen({
   buildingName,
   date,
+  meeting,
   onBack,
   onSend,
   onDone,
+  isSending: externalIsSending = false,
 }: SendScreenProps) {
-  // todo: remove mock functionality
-  const [recipients, setRecipients] = useState<Recipient[]>(mockRecipients);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [subject, setSubject] = useState(
     `Acta de Junta Ordinaria - ${buildingName} - ${date}`
   );
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
+  useEffect(() => {
+    if (meeting?.recipients && Array.isArray(meeting.recipients)) {
+      const existingRecipients = (meeting.recipients as EmailRecipient[]).map(r => ({
+        id: r.id,
+        email: r.email,
+        name: r.name,
+      }));
+      setRecipients(existingRecipients);
+    }
+    
+    if (meeting?.status === "sent") {
+      setIsSent(true);
+    }
+  }, [meeting?.recipients, meeting?.status]);
+
   const handleSend = async () => {
     setIsSending(true);
-    // todo: replace with actual API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsSending(false);
-    setIsSent(true);
-    onSend?.(recipients, subject);
+    try {
+      const formattedRecipients = recipients.map(r => ({
+        id: r.id,
+        name: r.name || "",
+        email: r.email,
+      }));
+      await onSend?.(formattedRecipients);
+      setIsSent(true);
+    } catch (error) {
+      console.error("Error sending:", error);
+    } finally {
+      setIsSending(false);
+    }
   };
+
+  const isLoading = isSending || externalIsSending;
 
   if (isSent) {
     return (
@@ -100,7 +122,7 @@ export default function SendScreen({
 
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-8">
         <Card className="shadow-lg overflow-hidden" data-testid="card-pdf-preview">
-          <div className="bg-primary/5 p-6 flex items-center justify-between">
+          <div className="bg-primary/5 p-6 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 <FileText className="w-6 h-6 text-primary" />
@@ -118,10 +140,16 @@ export default function SendScreen({
             </Button>
           </div>
           <CardContent className="p-6">
-            <div className="aspect-[8.5/11] bg-white rounded-lg border shadow-inner flex items-center justify-center">
-              <p className="text-muted-foreground text-sm">
-                Vista previa del documento PDF
-              </p>
+            <div className="aspect-[8.5/11] bg-white rounded-lg border shadow-inner overflow-auto p-4">
+              {meeting?.actaContent ? (
+                <pre className="whitespace-pre-wrap font-sans text-xs text-gray-800" data-testid="text-acta-preview">
+                  {meeting.actaContent}
+                </pre>
+              ) : (
+                <p className="text-muted-foreground text-sm text-center mt-20">
+                  Vista previa del documento PDF
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -155,13 +183,13 @@ export default function SendScreen({
           <Button
             size="lg"
             onClick={handleSend}
-            disabled={recipients.length === 0 || isSending}
+            disabled={recipients.length === 0 || isLoading}
             className="h-14 px-10 text-base font-semibold bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
             data-testid="button-send-acta"
           >
-            {isSending ? (
+            {isLoading ? (
               <>
-                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Enviando...
               </>
             ) : (

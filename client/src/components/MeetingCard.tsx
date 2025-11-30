@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Calendar, Users } from "lucide-react";
 import StatusBadge, { type ActaStatus } from "./StatusBadge";
 
-export interface Meeting {
+export interface MeetingCardData {
   id: string;
   buildingName: string;
   date: string;
@@ -11,7 +11,7 @@ export interface Meeting {
 }
 
 interface MeetingCardProps {
-  meeting: Meeting;
+  meeting: MeetingCardData;
   onClick?: () => void;
 }
 

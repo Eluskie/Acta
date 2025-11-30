@@ -2,59 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE - Acta: Warm professional palette */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
-  --background: 40 15% 97%;
-  --foreground: 200 20% 12%;
-  --border: 40 12% 88%;
-  --card: 40 18% 95%;
-  --card-foreground: 200 18% 15%;
-  --card-border: 40 15% 90%;
-  --sidebar: 40 20% 93%;
-  --sidebar-foreground: 200 22% 18%;
-  --sidebar-border: 40 18% 88%;
-  --sidebar-primary: 200 85% 35%;
-  --sidebar-primary-foreground: 40 15% 98%;
-  --sidebar-accent: 40 22% 88%;
-  --sidebar-accent-foreground: 200 20% 20%;
-  --sidebar-ring: 200 80% 40%;
-  --popover: 40 20% 90%;
-  --popover-foreground: 200 22% 20%;
-  --popover-border: 40 18% 85%;
-  --primary: 200 85% 35%;
-  --primary-foreground: 40 15% 98%;
-  --secondary: 40 25% 85%;
-  --secondary-foreground: 200 25% 22%;
-  --muted: 38 18% 87%;
-  --muted-foreground: 200 18% 35%;
-  --accent: 35 45% 88%;
-  --accent-foreground: 200 40% 25%;
-  --destructive: 0 72% 42%;
+  --background: 48 100% 96%;
+  --foreground: 220 13% 18%;
+  --border: 45 30% 88%;
+  --card: 45 60% 97%;
+  --card-foreground: 220 13% 18%;
+  --card-border: 45 25% 90%;
+  --sidebar: 160 84% 18%;
+  --sidebar-foreground: 45 100% 96%;
+  --sidebar-border: 160 84% 14%;
+  --sidebar-primary: 38 92% 50%;
+  --sidebar-primary-foreground: 220 13% 18%;
+  --sidebar-accent: 160 70% 22%;
+  --sidebar-accent-foreground: 45 100% 96%;
+  --sidebar-ring: 38 92% 50%;
+  --popover: 45 60% 97%;
+  --popover-foreground: 220 13% 18%;
+  --popover-border: 45 25% 88%;
+  --primary: 160 84% 22%;
+  --primary-foreground: 45 100% 98%;
+  --secondary: 45 40% 90%;
+  --secondary-foreground: 220 13% 22%;
+  --muted: 45 30% 92%;
+  --muted-foreground: 220 8% 46%;
+  --accent: 38 92% 50%;
+  --accent-foreground: 220 13% 15%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 10% 98%;
-  --input: 200 20% 65%;
-  --ring: 200 80% 40%;
-  --chart-1: 200 75% 38%;
-  --chart-2: 35 70% 45%;
-  --chart-3: 160 65% 40%;
+  --input: 45 20% 75%;
+  --ring: 160 84% 22%;
+  --chart-1: 160 84% 22%;
+  --chart-2: 38 92% 50%;
+  --chart-3: 142 76% 36%;
   --chart-4: 280 60% 45%;
   --chart-5: 20 75% 50%;
-  --font-sans: Open Sans, sans-serif;
+  --success: 142 76% 36%;
+  --success-foreground: 142 10% 98%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 38 10% 15%;
+  --recording: 0 72% 51%;
+  --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem;
-  --shadow-2xs: 0px 2px 0px 0px hsl(200 10% 20% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(200 10% 20% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(200 10% 20% / 0.00), 0px 1px 2px -1px hsl(200 10% 20% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(200 10% 20% / 0.00), 0px 1px 2px -1px hsl(200 10% 20% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(200 10% 20% / 0.00), 0px 2px 4px -1px hsl(200 10% 20% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(200 10% 20% / 0.00), 0px 4px 6px -1px hsl(200 10% 20% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(200 10% 20% / 0.00), 0px 8px 10px -1px hsl(200 10% 20% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(200 10% 20% / 0.00);
+  --shadow-2xs: 0px 1px 2px 0px hsl(45 10% 20% / 0.04);
+  --shadow-xs: 0px 1px 3px 0px hsl(45 10% 20% / 0.06);
+  --shadow-sm: 0px 2px 4px -1px hsl(45 10% 20% / 0.06), 0px 1px 2px -1px hsl(45 10% 20% / 0.04);
+  --shadow: 0px 4px 6px -1px hsl(45 10% 20% / 0.08), 0px 2px 4px -2px hsl(45 10% 20% / 0.04);
+  --shadow-md: 0px 6px 10px -2px hsl(45 10% 20% / 0.10), 0px 3px 6px -3px hsl(45 10% 20% / 0.06);
+  --shadow-lg: 0px 10px 20px -4px hsl(45 10% 20% / 0.12), 0px 6px 10px -4px hsl(45 10% 20% / 0.08);
+  --shadow-xl: 0px 20px 30px -6px hsl(45 10% 20% / 0.14), 0px 10px 16px -6px hsl(45 10% 20% / 0.10);
+  --shadow-2xl: 0px 30px 40px -8px hsl(45 10% 20% / 0.18);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -93,48 +98,53 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
-  --background: 200 8% 8%;
-  --foreground: 40 5% 92%;
-  --border: 200 6% 18%;
-  --card: 200 10% 10%;
-  --card-foreground: 40 6% 90%;
-  --card-border: 200 8% 14%;
-  --sidebar: 200 12% 12%;
-  --sidebar-foreground: 40 8% 88%;
-  --sidebar-border: 200 10% 16%;
-  --sidebar-primary: 200 80% 45%;
-  --sidebar-primary-foreground: 40 5% 95%;
-  --sidebar-accent: 200 15% 18%;
-  --sidebar-accent-foreground: 40 10% 85%;
-  --sidebar-ring: 200 75% 50%;
-  --popover: 200 15% 16%;
-  --popover-foreground: 40 10% 88%;
-  --popover-border: 200 12% 20%;
-  --primary: 200 80% 35%;
-  --primary-foreground: 40 5% 98%;
-  --secondary: 200 18% 20%;
-  --secondary-foreground: 40 12% 85%;
-  --muted: 200 16% 22%;
-  --muted-foreground: 40 8% 65%;
-  --accent: 200 20% 18%;
-  --accent-foreground: 40 10% 82%;
-  --destructive: 0 70% 38%;
+  --background: 160 15% 8%;
+  --foreground: 45 20% 92%;
+  --border: 160 10% 18%;
+  --card: 160 12% 10%;
+  --card-foreground: 45 15% 90%;
+  --card-border: 160 10% 15%;
+  --sidebar: 160 20% 12%;
+  --sidebar-foreground: 45 15% 88%;
+  --sidebar-border: 160 15% 16%;
+  --sidebar-primary: 38 90% 55%;
+  --sidebar-primary-foreground: 160 15% 10%;
+  --sidebar-accent: 160 25% 18%;
+  --sidebar-accent-foreground: 45 15% 85%;
+  --sidebar-ring: 38 90% 55%;
+  --popover: 160 15% 14%;
+  --popover-foreground: 45 15% 88%;
+  --popover-border: 160 12% 20%;
+  --primary: 160 70% 35%;
+  --primary-foreground: 45 10% 98%;
+  --secondary: 160 15% 18%;
+  --secondary-foreground: 45 15% 85%;
+  --muted: 160 12% 20%;
+  --muted-foreground: 45 8% 60%;
+  --accent: 38 85% 55%;
+  --accent-foreground: 160 15% 10%;
+  --destructive: 0 70% 45%;
   --destructive-foreground: 0 5% 95%;
-  --input: 200 18% 35%;
-  --ring: 200 75% 50%;
-  --chart-1: 200 75% 65%;
-  --chart-2: 35 75% 68%;
-  --chart-3: 160 70% 62%;
-  --chart-4: 280 65% 70%;
-  --chart-5: 20 80% 68%;
-  --shadow-2xs: 0px 2px 0px 0px hsl(200 10% 5% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(200 10% 5% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(200 10% 5% / 0.00), 0px 1px 2px -1px hsl(200 10% 5% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(200 10% 5% / 0.00), 0px 1px 2px -1px hsl(200 10% 5% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(200 10% 5% / 0.00), 0px 2px 4px -1px hsl(200 10% 5% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(200 10% 5% / 0.00), 0px 4px 6px -1px hsl(200 10% 5% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(200 10% 5% / 0.00), 0px 8px 10px -1px hsl(200 10% 5% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(200 10% 5% / 0.00);
+  --input: 160 15% 30%;
+  --ring: 160 70% 35%;
+  --chart-1: 160 70% 50%;
+  --chart-2: 38 85% 60%;
+  --chart-3: 142 70% 50%;
+  --chart-4: 280 65% 65%;
+  --chart-5: 20 80% 60%;
+  --success: 142 70% 45%;
+  --success-foreground: 142 10% 98%;
+  --warning: 38 85% 55%;
+  --warning-foreground: 38 10% 15%;
+  --recording: 0 70% 55%;
+  --shadow-2xs: 0px 1px 2px 0px hsl(160 10% 5% / 0.20);
+  --shadow-xs: 0px 1px 3px 0px hsl(160 10% 5% / 0.25);
+  --shadow-sm: 0px 2px 4px -1px hsl(160 10% 5% / 0.30), 0px 1px 2px -1px hsl(160 10% 5% / 0.20);
+  --shadow: 0px 4px 6px -1px hsl(160 10% 5% / 0.35), 0px 2px 4px -2px hsl(160 10% 5% / 0.25);
+  --shadow-md: 0px 6px 10px -2px hsl(160 10% 5% / 0.40), 0px 3px 6px -3px hsl(160 10% 5% / 0.30);
+  --shadow-lg: 0px 10px 20px -4px hsl(160 10% 5% / 0.45), 0px 6px 10px -4px hsl(160 10% 5% / 0.35);
+  --shadow-xl: 0px 20px 30px -6px hsl(160 10% 5% / 0.50), 0px 10px 16px -6px hsl(160 10% 5% / 0.40);
+  --shadow-2xl: 0px 30px 40px -8px hsl(160 10% 5% / 0.55);
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -285,4 +295,71 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+}
+
+/* Recording pulse animation */
+@keyframes recording-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.animate-recording-pulse {
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+/* Waveform animation */
+@keyframes waveform {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-waveform {
+  animation: waveform 0.8s ease-in-out infinite;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Success checkmark animation */
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-checkmark {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkmark 0.5s ease-out forwards;
 }

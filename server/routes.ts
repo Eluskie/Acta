@@ -141,7 +141,7 @@ export async function registerRoutes(
   app.post("/api/meetings/:id/transcribe", upload.single("audio"), async (req: Request, res: Response) => {
     const meetingId = req.params.id;
     let audioFilePath: string | null = null;
-    
+
     try {
       const meeting = await storage.getMeeting(meetingId);
       if (!meeting) {
@@ -171,9 +171,9 @@ export async function registerRoutes(
 
       // Transcribe with OpenAI Whisper
       console.log(`Transcribing audio file: ${audioFilePath} (${stats.size} bytes)`);
-      
+
       const audioReadStream = fs.createReadStream(audioFilePath);
-      
+
       let transcription: any;
       try {
         transcription = await openai.audio.transcriptions.create({
@@ -185,15 +185,15 @@ export async function registerRoutes(
         });
       } catch (openaiError: any) {
         console.error("OpenAI Whisper error:", openaiError);
-        
+
         // Reset meeting status on error
         await storage.updateMeeting(meetingId, { status: "recording" });
         cleanupFile(audioFilePath);
-        
+
         const errorMessage = openaiError?.message || "Error de transcripción";
-        return res.status(500).json({ 
-          error: "Error al transcribir el audio", 
-          details: errorMessage 
+        return res.status(500).json({
+          error: "Error al transcribir el audio",
+          details: errorMessage
         });
       }
 
@@ -203,7 +203,7 @@ export async function registerRoutes(
         const minutes = Math.floor(segment.start / 60);
         const seconds = Math.floor(segment.start % 60);
         const timestamp = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-        
+
         return {
           id: `p-${index + 1}`,
           timestamp,
@@ -223,35 +223,106 @@ export async function registerRoutes(
       // Calculate duration from transcription or audio file
       const duration = transcription.duration ? Math.round(transcription.duration) : 0;
 
+      // Convert file path to URL (e.g., uploads/audio-123.webm -> /uploads/audio-123.webm)
+      const audioUrl = audioFilePath ? `/${audioFilePath.replace(/\\/g, '/')}` : undefined;
+
       // Update meeting with transcript and audio URL
       const updatedMeeting = await storage.updateMeeting(meetingId, {
         transcript: finalParagraphs,
-        audioUrl: audioFilePath, // Store for potential playback
+        audioUrl: audioUrl, // Store as URL for browser playback
         duration,
-        status: "review",
+        status: "processing", // Keep in processing while generating acta
       });
 
       console.log(`Transcription complete for meeting ${meetingId}: ${finalParagraphs.length} paragraphs`);
+      console.log(`[DEBUG] About to auto-generate acta for meeting ${meetingId}`);
 
-      res.json(updatedMeeting);
+      // Auto-generate acta after transcription
+      try {
+        console.log(`[DEBUG] Starting acta auto-generation for meeting ${meetingId}...`);
+
+        // Format transcript for the AI
+        const transcriptText = finalParagraphs
+          .map((p: { timestamp: string; speaker?: string; text: string }) => `[${p.timestamp}] ${p.speaker ? `${p.speaker}: ` : ""}${p.text}`)
+          .join("\n");
+
+        console.log(`[DEBUG] Formatted transcript (${transcriptText.length} chars)`);
+
+        const formattedDate = new Date(updatedMeeting!.date).toLocaleDateString("es-ES", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        const prompt = `Eres un secretario profesional de comunidades de vecinos en España.
+Genera un acta oficial de reunión basada en la siguiente transcripción.
+
+INFORMACIÓN DE LA REUNIÓN:
+- Comunidad: ${updatedMeeting!.buildingName}
+- Fecha: ${formattedDate}
+- Asistentes: ${updatedMeeting!.attendeesCount} personas
+
+TRANSCRIPCIÓN:
+${transcriptText}
+
+Por favor, genera un acta formal en español con el siguiente formato:
+1. Encabezado con lugar, fecha y hora
+2. Lista de asistentes (si se mencionan)
+3. Orden del día (puntos tratados)
+4. Desarrollo de la sesión con los acuerdos alcanzados
+5. Cierre con hora de finalización
+
+El acta debe ser profesional, clara y respetar el formato oficial español para actas de comunidades de propietarios.`;
+
+        console.log(`[DEBUG] Calling OpenAI API for acta generation...`);
+        const actaResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: "Eres un experto en redacción de actas oficiales de comunidades de vecinos en España." },
+            { role: "user", content: prompt }
+          ],
+          max_completion_tokens: 4096,
+        });
+
+        const actaContent = actaResponse.choices[0].message.content || "";
+        console.log(`[DEBUG] Acta generated (${actaContent.length} chars)`);
+
+        // Update meeting with acta content and set status to review
+        const finalMeeting = await storage.updateMeeting(meetingId, {
+          actaContent,
+          status: "review",
+        });
+
+        console.log(`[SUCCESS] Acta auto-generated for meeting ${meetingId}`);
+        res.json(finalMeeting);
+      } catch (actaError) {
+        console.error("[ERROR] Error auto-generating acta:", actaError);
+        // If acta generation fails, still return the meeting with transcript
+        // but keep it in review status without acta
+        const fallbackMeeting = await storage.updateMeeting(meetingId, {
+          status: "review",
+        });
+        res.json(fallbackMeeting);
+      }
     } catch (error) {
       console.error("Error transcribing audio:", error);
-      
+
       // Reset meeting status on error
       try {
         await storage.updateMeeting(meetingId, { status: "recording" });
       } catch (e) {
         console.error("Error resetting meeting status:", e);
       }
-      
+
       // Clean up audio file
       if (audioFilePath) {
         cleanupFile(audioFilePath);
       }
-      
-      res.status(500).json({ 
-        error: "Error al transcribir el audio", 
-        details: error instanceof Error ? error.message : "Error desconocido" 
+
+      res.status(500).json({
+        error: "Error al transcribir el audio",
+        details: error instanceof Error ? error.message : "Error desconocido"
       });
     }
   });
@@ -259,7 +330,7 @@ export async function registerRoutes(
   // Generate acta content from transcript using AI
   app.post("/api/meetings/:id/generate-acta", async (req: Request, res: Response) => {
     const meetingId = req.params.id;
-    
+
     try {
       const meeting = await storage.getMeeting(meetingId);
       if (!meeting) {
@@ -321,9 +392,9 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
       res.json(updatedMeeting);
     } catch (error) {
       console.error("Error generating acta:", error);
-      res.status(500).json({ 
-        error: "Error al generar el acta", 
-        details: error instanceof Error ? error.message : "Error desconocido" 
+      res.status(500).json({
+        error: "Error al generar el acta",
+        details: error instanceof Error ? error.message : "Error desconocido"
       });
     }
   });
@@ -331,7 +402,7 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
   // Send acta via email
   app.post("/api/meetings/:id/send", async (req: Request, res: Response) => {
     const meetingId = req.params.id;
-    
+
     try {
       const meeting = await storage.getMeeting(meetingId);
       if (!meeting) {
@@ -341,11 +412,11 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
       // Validate recipients
       const recipientsSchema = z.array(emailRecipientSchema).min(1, "Debe incluir al menos un destinatario");
       const parseResult = recipientsSchema.safeParse(req.body.recipients);
-      
+
       if (!parseResult.success) {
-        return res.status(400).json({ 
-          error: "Destinatarios inválidos", 
-          details: parseResult.error.errors 
+        return res.status(400).json({
+          error: "Destinatarios inválidos",
+          details: parseResult.error.errors
         });
       }
 
@@ -368,16 +439,16 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
       console.log("Acta Content:", meeting.actaContent?.substring(0, 100) + "...");
       console.log("========================");
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: "Acta enviada correctamente",
-        meeting: updatedMeeting 
+        meeting: updatedMeeting
       });
     } catch (error) {
       console.error("Error sending acta:", error);
-      res.status(500).json({ 
-        error: "Error al enviar el acta", 
-        details: error instanceof Error ? error.message : "Error desconocido" 
+      res.status(500).json({
+        error: "Error al enviar el acta",
+        details: error instanceof Error ? error.message : "Error desconocido"
       });
     }
   });

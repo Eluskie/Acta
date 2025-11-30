@@ -1,11 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Calendar, Users } from "lucide-react";
+import { FileText, Calendar, Clock } from "lucide-react";
 import StatusBadge, { type ActaStatus } from "./StatusBadge";
 
 export interface MeetingCardData {
   id: string;
   buildingName: string;
   date: string;
+  duration?: number; // duration in seconds
   attendeesCount: number;
   status: ActaStatus;
 }
@@ -16,33 +17,45 @@ interface MeetingCardProps {
 }
 
 export default function MeetingCard({ meeting, onClick }: MeetingCardProps) {
+  // Format duration mm:ss or hh:mm:ss
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return "00:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Card
-      className="hover-elevate active-elevate-2 cursor-pointer transition-all duration-200"
+      className="group hover:shadow-sm transition-all duration-200 cursor-pointer border-border/40 bg-card/50 hover:bg-card hover:border-border/80"
       onClick={onClick}
       data-testid={`card-meeting-${meeting.id}`}
     >
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-5 h-5 text-primary" />
-            </div>
-            <h3 className="font-semibold text-base leading-tight">
-              {meeting.buildingName}
-            </h3>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="w-9 h-9 rounded-md bg-muted/50 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:bg-muted transition-colors">
+            <FileText className="w-4 h-4" />
           </div>
-          <StatusBadge status={meeting.status} />
+          <StatusBadge status={meeting.status} className="scale-90 origin-right" />
         </div>
-        
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+
+        <h3 className="font-medium text-base mb-4 line-clamp-2 min-h-[3rem] text-foreground/90 group-hover:text-foreground transition-colors">
+          {meeting.buildingName}
+        </h3>
+
+        <div className="flex items-center gap-4 text-xs text-muted-foreground/80 group-hover:text-muted-foreground transition-colors">
           <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-3.5 h-3.5" />
             <span>{meeting.date}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Users className="w-4 h-4" />
-            <span>{meeting.attendeesCount} asistentes</span>
+            <Clock className="w-3.5 h-3.5" />
+            <span>{formatDuration(meeting.duration)}</span>
           </div>
         </div>
       </CardContent>

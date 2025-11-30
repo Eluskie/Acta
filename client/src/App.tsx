@@ -7,13 +7,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/Dashboard";
 import ReviewEditScreen from "@/pages/ReviewEditScreen";
-import SendScreen from "@/pages/SendScreen";
 import RecordingScreen from "@/components/RecordingScreen";
 import ProcessingScreen from "@/components/ProcessingScreen";
 import NotFound from "@/pages/not-found";
 import type { Meeting } from "@shared/schema";
 
-type AppScreen = "dashboard" | "recording" | "processing" | "review" | "send";
+type AppScreen = "dashboard" | "recording" | "processing" | "review";
 
 interface MeetingData {
   id?: string;
@@ -49,18 +48,18 @@ function AppContent() {
     mutationFn: async ({ meetingId, audioBlob }: { meetingId: string; audioBlob: Blob }) => {
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.webm");
-      
+
       const res = await fetch(`/api/meetings/${meetingId}/transcribe`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
-      
+
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.details || error.error || "Transcription failed");
       }
-      
+
       return res.json() as Promise<Meeting>;
     },
     onSuccess: (meeting) => {
@@ -101,13 +100,13 @@ function AppContent() {
 
   // Send acta mutation
   const sendActaMutation = useMutation({
-    mutationFn: async ({ 
-      meetingId, 
-      recipients, 
-      subject, 
-      message 
-    }: { 
-      meetingId: string; 
+    mutationFn: async ({
+      meetingId,
+      recipients,
+      subject,
+      message
+    }: {
+      meetingId: string;
       recipients: Array<{ id: string; name: string; email: string }>;
       subject?: string;
       message?: string;
@@ -137,7 +136,7 @@ function AppContent() {
 
   const handleStartRecording = async (data: MeetingData) => {
     setMeetingData(data);
-    
+
     // Create meeting in backend
     try {
       const meeting = await createMeetingMutation.mutateAsync({
@@ -178,7 +177,7 @@ function AppContent() {
 
     console.log(`Audio captured: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
     setCurrentScreen("processing");
-    
+
     // Upload and transcribe
     transcribeMutation.mutate({
       meetingId: meetingData.id,
@@ -191,19 +190,15 @@ function AppContent() {
       const res = await fetch(`/api/meetings/${meetingId}`, { credentials: "include" });
       if (!res.ok) throw new Error("Meeting not found");
       const meeting = await res.json() as Meeting;
-      
+
       setCurrentMeeting(meeting);
       setMeetingData({
         id: meeting.id,
         buildingName: meeting.buildingName,
         attendeesCount: meeting.attendeesCount,
       });
-      
-      if (meeting.status === "sent") {
-        setCurrentScreen("send");
-      } else {
-        setCurrentScreen("review");
-      }
+
+      setCurrentScreen("review");
     } catch (error) {
       toast({
         title: "Error",
@@ -213,20 +208,16 @@ function AppContent() {
     }
   };
 
-  const handleGenerateActa = async () => {
+  const handleSendActa = async (recipients: Array<{ id: string; name: string; email: string }>, actaContent: string) => {
     if (!currentMeeting?.id) return;
-    
-    await generateActaMutation.mutateAsync(currentMeeting.id);
-    setCurrentScreen("send");
-  };
 
-  const handleSendActa = async (recipients: Array<{ id: string; name: string; email: string }>) => {
-    if (!currentMeeting?.id) return;
-    
     await sendActaMutation.mutateAsync({
       meetingId: currentMeeting.id,
       recipients,
     });
+
+    // After successful send, go back to dashboard
+    handleDone();
   };
 
   const handleDone = () => {
@@ -246,9 +237,6 @@ function AppContent() {
         break;
       case "review":
         setCurrentScreen("dashboard");
-        break;
-      case "send":
-        setCurrentScreen("review");
         break;
       default:
         setCurrentScreen("dashboard");
@@ -280,33 +268,7 @@ function AppContent() {
         buildingName={meetingData.buildingName}
         meeting={currentMeeting}
         onBack={handleBack}
-        onGenerate={handleGenerateActa}
-        isGenerating={generateActaMutation.isPending}
-      />
-    );
-  }
-
-  if (currentScreen === "send" && meetingData) {
-    const formattedDate = currentMeeting?.date 
-      ? new Date(currentMeeting.date).toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : new Date().toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
-
-    return (
-      <SendScreen
-        buildingName={meetingData.buildingName}
-        date={formattedDate}
-        meeting={currentMeeting}
-        onBack={handleBack}
         onSend={handleSendActa}
-        onDone={handleDone}
         isSending={sendActaMutation.isPending}
       />
     );

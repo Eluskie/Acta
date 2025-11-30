@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -59,6 +60,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve uploaded files statically
+app.use('/uploads', express.static('uploads'));
+
 (async () => {
   await registerRoutes(httpServer, app);
 
@@ -89,7 +93,6 @@ app.use((req, res, next) => {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       log(`serving on port ${port}`);

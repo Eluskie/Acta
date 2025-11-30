@@ -43,7 +43,7 @@ export default function SendScreen({
       }));
       setRecipients(existingRecipients);
     }
-    
+
     if (meeting?.status === "sent") {
       setIsSent(true);
     }
@@ -100,21 +100,22 @@ export default function SendScreen({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-background font-sans">
+      <header className="sticky top-0 z-50 bg-background border-b border-border/40 h-14">
+        <div className="max-w-[1600px] mx-auto px-4 h-full flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={onBack}
               data-testid="button-back"
+              className="text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h1 className="font-semibold">Enviar Acta</h1>
-              <p className="text-sm text-muted-foreground">{buildingName}</p>
+            <div className="flex flex-col">
+              <h1 className="font-semibold text-sm leading-none">Enviar Acta</h1>
+              <p className="text-xs text-muted-foreground mt-1">{buildingName}</p>
             </div>
           </div>
         </div>

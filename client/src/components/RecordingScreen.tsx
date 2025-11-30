@@ -19,7 +19,7 @@ export default function RecordingScreen({
   onClose,
 }: RecordingScreenProps) {
   const [hasStarted, setHasStarted] = useState(false);
-  
+
   const {
     isRecording,
     isPaused,
@@ -79,30 +79,30 @@ export default function RecordingScreen({
   }
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      <div className="flex items-center justify-between p-6 border-b">
+    <div className="fixed inset-0 bg-background z-50 flex flex-col font-sans">
+      <div className="flex items-center justify-between p-4 border-b border-border/40 h-14">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-primary" />
+          <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+            <Building2 className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h2 className="font-semibold" data-testid="text-building-name">{buildingName}</h2>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Users className="w-4 h-4" />
+            <h2 className="font-semibold text-sm leading-none" data-testid="text-building-name">{buildingName}</h2>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+              <Users className="w-3 h-3" />
               <span data-testid="text-attendees-count">{attendeesCount} asistentes</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full">
           <div
             className={cn(
-              "w-3 h-3 rounded-full",
-              isRecording && !isPaused ? "bg-recording animate-recording-pulse" : "bg-muted-foreground"
+              "w-2 h-2 rounded-full",
+              isRecording && !isPaused ? "bg-red-500 animate-pulse" : "bg-muted-foreground"
             )}
             data-testid="indicator-recording"
           />
-          <span className="text-sm font-medium text-muted-foreground" data-testid="text-recording-status">
+          <span className="text-xs font-medium text-muted-foreground" data-testid="text-recording-status">
             {isPaused ? "En pausa" : isRecording ? "Grabando" : "Detenido"}
           </span>
         </div>

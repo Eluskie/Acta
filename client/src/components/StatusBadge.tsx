@@ -11,19 +11,19 @@ interface StatusBadgeProps {
 const statusConfig: Record<ActaStatus, { label: string; className: string }> = {
   recording: {
     label: "Grabando",
-    className: "bg-recording/10 text-recording border-recording/20 animate-recording-pulse",
+    className: "bg-red-100 text-red-700 border-red-200 animate-pulse",
   },
   processing: {
     label: "Procesando",
-    className: "bg-warning/10 text-warning-foreground border-warning/20",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
   },
   review: {
-    label: "Borrador",
-    className: "bg-muted text-muted-foreground border-muted-foreground/20",
+    label: "Completada",
+    className: "bg-green-100 text-green-700 border-green-200",
   },
   sent: {
-    label: "Enviado",
-    className: "bg-success/10 text-success border-success/20",
+    label: "Enviada",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
   },
 };
 

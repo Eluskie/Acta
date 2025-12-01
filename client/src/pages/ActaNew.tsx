@@ -129,7 +129,10 @@ export default function ActaNew() {
         <NewMeetingDialog
           open={true}
           onOpenChange={(open) => {
-            if (!open) navigate("/");
+            // Only navigate away if user cancels (not when transitioning to recording)
+            if (!open && step === "setup") {
+              navigate("/");
+            }
           }}
           onStartRecording={handleStartRecording}
         />

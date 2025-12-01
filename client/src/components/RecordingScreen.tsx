@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Pause, Square, Play, Users, Building2, AlertCircle } from "lucide-react";
 import AudioWaveform from "./AudioWaveform";
@@ -18,7 +18,7 @@ export default function RecordingScreen({
   onStop,
   onClose,
 }: RecordingScreenProps) {
-  const [hasStarted, setHasStarted] = useState(false);
+  const hasStartedRef = useRef(false);
 
   const {
     isRecording,
@@ -32,13 +32,14 @@ export default function RecordingScreen({
     error,
   } = useAudioRecorder();
 
-  // Auto-start recording when component mounts
+  // Auto-start recording when component mounts (only once)
   useEffect(() => {
-    if (!hasStarted) {
-      setHasStarted(true);
+    if (!hasStartedRef.current) {
+      hasStartedRef.current = true;
       startRecording();
     }
-  }, [hasStarted, startRecording]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

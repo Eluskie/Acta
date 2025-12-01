@@ -39,7 +39,7 @@ export async function sendActaEmail({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Acta <onboarding@resend.dev>', // Replace with your verified domain
+      from: 'Acta <noreply@updates.withflare.so>',
       to: to.map(recipient => recipient.email),
       subject,
       html: `

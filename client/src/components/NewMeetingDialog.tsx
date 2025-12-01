@@ -33,7 +33,8 @@ export default function NewMeetingDialog({
       });
       setBuildingName("");
       setAttendeesCount("");
-      onOpenChange(false);
+      // Don't close the dialog - let the parent component handle the transition
+      // onOpenChange(false);
     }
   };
 

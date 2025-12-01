@@ -1,29 +1,33 @@
 import { useState, useEffect } from "react";
-import * as React from "react";
+import { useLocation, useRoute } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import TranscriptEditor, { type TranscriptParagraph } from "@/components/TranscriptEditor";
 import AudioPlayer from "@/components/AudioPlayer";
 import PageHeader from "@/components/PageHeader";
 import type { Meeting } from "@shared/schema";
 
-interface ReviewEditScreenProps {
-  buildingName: string;
-  meeting?: Meeting | null;
-  onBack?: () => void;
-  onNext?: () => void;
-}
+export default function ActaView() {
+  const [, navigate] = useLocation();
+  const [, params] = useRoute("/acta/:id");
+  const actaId = params?.id;
 
-export default function ReviewEditScreen({
-  buildingName,
-  meeting,
-  onBack,
-  onNext,
-}: ReviewEditScreenProps) {
   const [paragraphs, setParagraphs] = useState<TranscriptParagraph[]>([]);
   const [actaContent, setActaContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+
+  // Fetch meeting data
+  const { data: meeting, isLoading, error } = useQuery<Meeting>({
+    queryKey: ["/api/meetings", actaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/meetings/${actaId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Meeting not found");
+      return res.json();
+    },
+    enabled: !!actaId,
+  });
 
   useEffect(() => {
     if (meeting?.transcript && Array.isArray(meeting.transcript)) {
@@ -37,14 +41,34 @@ export default function ReviewEditScreen({
     }
   }, [meeting?.actaContent]);
 
-  const audioDuration = meeting?.duration || 0;
-  const meetingDate = meeting?.date ? new Date(meeting.date) : new Date();
+  const handleBack = () => {
+    navigate("/");
+  };
 
-  const formattedDate = meetingDate.toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const handleNext = () => {
+    navigate(`/acta/${actaId}/send`);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !meeting) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">No se encontró el acta</p>
+        <Button onClick={() => navigate("/")}>Volver al inicio</Button>
+      </div>
+    );
+  }
+
+  const buildingName = meeting.buildingName;
+  const audioDuration = meeting.duration || 0;
+  const meetingDate = meeting.date ? new Date(meeting.date) : new Date();
 
   const formattedDateLong = meetingDate.toLocaleDateString("es-ES", {
     weekday: 'long',
@@ -78,10 +102,10 @@ export default function ReviewEditScreen({
       <PageHeader
         title="Acta Oficial"
         subtitle={buildingName}
-        onBack={onBack}
+        onBack={handleBack}
         action={
           <Button
-            onClick={onNext}
+            onClick={handleNext}
             className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-10 px-6"
           >
             Continuar <ChevronRight className="w-4 h-4" />
@@ -114,7 +138,7 @@ export default function ReviewEditScreen({
                 {/* Header */}
                 <div className="text-center mb-2">
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
-                    ACTA OFICIAL NO. {meeting?.id || new Date().getFullYear() + '-' + Math.floor(Math.random() * 100)}
+                    ACTA OFICIAL NO. {meeting.id || new Date().getFullYear() + '-' + Math.floor(Math.random() * 100)}
                   </p>
                   <h1 className="text-3xl font-bold text-foreground mb-1">
                     ACTA DE REUNIÓN
@@ -132,7 +156,7 @@ export default function ReviewEditScreen({
                 </div>
 
                 {/* Attendees Box */}
-                {meeting?.attendeesCount && (
+                {meeting.attendeesCount && (
                   <div className="my-8 bg-muted/30 border border-border rounded p-6">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
                       ASISTENTES
@@ -150,7 +174,6 @@ export default function ReviewEditScreen({
                   onBlur={(e) => {
                     setIsEditing(false);
                     const newContent = e.currentTarget.innerHTML || '';
-                    // Store the HTML content as-is to preserve formatting
                     setActaContent(newContent);
                   }}
                   onClick={() => setIsEditing(true)}
@@ -201,7 +224,7 @@ export default function ReviewEditScreen({
       {/* Continue Button (Mobile, above audio) */}
       <div className="md:hidden p-4 bg-card border-t border-border">
         <Button
-          onClick={onNext}
+          onClick={handleNext}
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-12 text-base font-semibold"
         >
           Continuar <ChevronRight className="w-5 h-5" />
@@ -211,7 +234,7 @@ export default function ReviewEditScreen({
       {/* Audio Player */}
       <div className="p-4 bg-card border-t border-border">
         <div className="max-w-5xl mx-auto">
-          <AudioPlayer audioUrl={meeting?.audioUrl} duration={audioDuration} />
+          <AudioPlayer audioUrl={meeting.audioUrl} duration={audioDuration} />
         </div>
       </div>
 
@@ -244,3 +267,4 @@ export default function ReviewEditScreen({
     </div>
   );
 }
+

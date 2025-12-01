@@ -1,49 +1,101 @@
 import { useState, useEffect } from "react";
+import { useLocation, useRoute } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, FileText, Download } from "lucide-react";
+import { Check, FileText, Download, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 import EmailRecipients, { type Recipient } from "@/components/EmailRecipients";
 import PageHeader from "@/components/PageHeader";
 import type { Meeting, EmailRecipient } from "@shared/schema";
 
-interface SendScreenProps {
-  buildingName: string;
-  meeting?: Meeting | null;
-  onBack?: () => void;
-  onSend?: (recipients: Array<{ id: string; name: string; email: string }>, subject: string, message: string) => Promise<void>;
-  onDone?: () => void;
-}
+export default function ActaSend() {
+  const [, navigate] = useLocation();
+  const [, params] = useRoute("/acta/:id/send");
+  const actaId = params?.id;
+  const { toast } = useToast();
 
-export default function SendScreen({
-  buildingName,
-  meeting,
-  onBack,
-  onSend,
-  onDone,
-}: SendScreenProps) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [subject, setSubject] = useState(
-    `Acta Oficial - ${buildingName} - ${new Date().toLocaleDateString("es-ES")}`
-  );
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState(
     "Adjunto encontrarán el acta oficial de la reunión realizada el día de hoy. Por favor revisar y confirmar recepción."
   );
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
 
+  // Fetch meeting data
+  const { data: meeting, isLoading, error } = useQuery<Meeting>({
+    queryKey: ["/api/meetings", actaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/meetings/${actaId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Meeting not found");
+      return res.json();
+    },
+    enabled: !!actaId,
+  });
+
+  // Initialize subject when meeting loads
   useEffect(() => {
-    if (meeting?.recipients && Array.isArray(meeting.recipients)) {
-      const existingRecipients = (meeting.recipients as EmailRecipient[]).map(r => ({
-        id: r.id,
-        email: r.email,
-        name: r.name,
-      }));
-      setRecipients(existingRecipients);
+    if (meeting) {
+      setSubject(`Acta Oficial - ${meeting.buildingName} - ${new Date().toLocaleDateString("es-ES")}`);
+      
+      // Load existing recipients if any
+      if (meeting.recipients && Array.isArray(meeting.recipients)) {
+        const existingRecipients = (meeting.recipients as EmailRecipient[]).map(r => ({
+          id: r.id,
+          email: r.email,
+          name: r.name,
+        }));
+        setRecipients(existingRecipients);
+      }
     }
-  }, [meeting?.recipients]);
+  }, [meeting]);
+
+  // Send acta mutation
+  const sendActaMutation = useMutation({
+    mutationFn: async ({
+      recipients,
+      subject,
+      message
+    }: {
+      recipients: Array<{ id: string; name: string; email: string }>;
+      subject: string;
+      message: string;
+    }) => {
+      const res = await apiRequest("POST", `/api/meetings/${actaId}/send`, {
+        recipients,
+        subject,
+        message,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      toast({
+        title: "Acta enviada",
+        description: "El acta ha sido enviada correctamente a todos los destinatarios",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error enviando acta",
+        description: error instanceof Error ? error.message : "No se pudo enviar el acta",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBack = () => {
+    navigate(`/acta/${actaId}`);
+  };
+
+  const handleDone = () => {
+    navigate("/");
+  };
 
   const handleSend = async () => {
     setIsSending(true);
@@ -53,17 +105,77 @@ export default function SendScreen({
         name: r.name || r.email.split("@")[0],
         email: r.email,
       }));
-      await onSend?.(formattedRecipients, subject, message);
+      await sendActaMutation.mutateAsync({
+        recipients: formattedRecipients,
+        subject,
+        message,
+      });
       setIsSending(false);
       setSentSuccess(true);
       setTimeout(() => {
-        onDone?.();
+        handleDone();
       }, 2500);
     } catch (error) {
       setIsSending(false);
       console.error("Error sending:", error);
     }
   };
+
+  const handleDownload = async () => {
+    if (!actaId || !meeting) return;
+
+    try {
+      const response = await fetch(`/api/meetings/${actaId}/download-pdf`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await response.blob();
+
+      const dateStr = new Date(meeting.date).toLocaleDateString('es-ES').replace(/\//g, '-');
+      const cleanBuildingName = meeting.buildingName.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '').replace(/\s+/g, '_');
+      const fileName = `Acta_${cleanBuildingName}_${dateStr}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo descargar el PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !meeting) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">No se encontró el acta</p>
+        <Button onClick={() => navigate("/")}>Volver al inicio</Button>
+      </div>
+    );
+  }
+
+  const buildingName = meeting.buildingName;
 
   if (sentSuccess) {
     return (
@@ -104,7 +216,7 @@ export default function SendScreen({
               transition={{ delay: 0.6 }}
             >
               <Button
-                onClick={onDone}
+                onClick={handleDone}
                 variant="outline"
                 className="w-full md:w-auto px-8"
               >
@@ -117,53 +229,13 @@ export default function SendScreen({
     );
   }
 
-  const handleDownload = async () => {
-    if (!meeting?.id) return;
-
-    try {
-      // Call server endpoint to generate PDF
-      const response = await fetch(`/api/meetings/${meeting.id}/download-pdf`, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate PDF");
-      }
-
-      // Get the PDF blob from response
-      const blob = await response.blob();
-
-      // Generate proper filename
-      const fileName = `Acta_${buildingName.replace(/\s+/g, '_')}_${meeting.id}.pdf`;
-
-      // Create download link and trigger download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = fileName;
-      a.setAttribute('download', fileName); // Ensure download attribute is set
-
-      document.body.appendChild(a);
-      a.click();
-
-      // Cleanup after a short delay to ensure download starts
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }, 100);
-    } catch (error) {
-      console.error("Error downloading PDF:", error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <PageHeader
         title="Enviar Acta Oficial"
         subtitle="Revisa los destinatarios antes de enviar el documento final"
-        onBack={onBack}
+        onBack={handleBack}
       />
 
       {/* Content */}
@@ -313,3 +385,4 @@ export default function SendScreen({
     </div>
   );
 }
+

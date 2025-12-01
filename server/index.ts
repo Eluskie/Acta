@@ -3,9 +3,14 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import path from "path";
+import fs from "fs";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Absolute path to uploads directory
+const uploadsDir = path.join(process.cwd(), "uploads");
 
 declare module "http" {
   interface IncomingMessage {
@@ -60,8 +65,38 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
+// Log the uploads directory on startup for debugging
+console.log(`[uploads] Serving uploads from: ${uploadsDir}`);
+
+// Serve uploaded files statically with absolute path
+// This must be registered before the SPA catch-all in production
+app.use('/uploads', (req, res, next) => {
+  const filePath = path.join(uploadsDir, req.path);
+  
+  // Log upload requests in production for debugging
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`[uploads] Request for: ${req.path}`);
+    console.log(`[uploads] Full path: ${filePath}`);
+    console.log(`[uploads] File exists: ${fs.existsSync(filePath)}`);
+  }
+  
+  next();
+}, express.static(uploadsDir, {
+  // Set proper headers for audio files
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.webm')) {
+      res.setHeader('Content-Type', 'audio/webm');
+    } else if (filePath.endsWith('.mp3')) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+    } else if (filePath.endsWith('.wav')) {
+      res.setHeader('Content-Type', 'audio/wav');
+    } else if (filePath.endsWith('.m4a')) {
+      res.setHeader('Content-Type', 'audio/mp4');
+    }
+    // Allow audio to be played from any origin
+    res.setHeader('Accept-Ranges', 'bytes');
+  }
+}));
 
 (async () => {
   await registerRoutes(httpServer, app);

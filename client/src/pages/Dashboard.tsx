@@ -1,22 +1,16 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Mic, Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import MeetingCard from "@/components/MeetingCard";
 import EmptyState from "@/components/EmptyState";
-import NewMeetingDialog from "@/components/NewMeetingDialog";
 import type { Meeting } from "@shared/schema";
 import type { ActaStatus } from "@/components/StatusBadge";
-import { Card, CardContent } from "@/components/ui/card";
 
-interface DashboardProps {
-  onStartRecording?: (data: { buildingName: string; attendeesCount: number }) => void;
-  onMeetingClick?: (meetingId: string) => void;
-}
-
-export default function Dashboard({ onStartRecording, onMeetingClick }: DashboardProps) {
-  const [dialogOpen, setDialogOpen] = useState(false);
+export default function Dashboard() {
+  const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
@@ -73,7 +67,7 @@ export default function Dashboard({ onStartRecording, onMeetingClick }: Dashboar
               <Button
                 size="sm"
                 className="hidden md:flex gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={() => setDialogOpen(true)}
+                onClick={() => navigate("/acta/new")}
               >
                 <Plus className="w-4 h-4" />
                 Nueva Acta
@@ -86,7 +80,7 @@ export default function Dashboard({ onStartRecording, onMeetingClick }: Dashboar
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : isEmpty ? (
-            <EmptyState onStartRecording={() => setDialogOpen(true)} />
+            <EmptyState onStartRecording={() => navigate("/acta/new")} />
           ) : (
             <>
               {filteredMeetings.length === 0 ? (
@@ -101,7 +95,7 @@ export default function Dashboard({ onStartRecording, onMeetingClick }: Dashboar
                     <MeetingCard
                       key={meeting.id}
                       meeting={meeting}
-                      onClick={() => onMeetingClick?.(meeting.id)}
+                      onClick={() => navigate(`/acta/${meeting.id}`)}
                     />
                   ))}
                 </div>
@@ -116,17 +110,11 @@ export default function Dashboard({ onStartRecording, onMeetingClick }: Dashboar
         <Button
           size="icon"
           className="h-14 w-14 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-transform hover:scale-105 active:scale-95"
-          onClick={() => setDialogOpen(true)}
+          onClick={() => navigate("/acta/new")}
         >
           <Plus className="w-6 h-6" />
         </Button>
       </div>
-
-      <NewMeetingDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onStartRecording={onStartRecording}
-      />
     </div>
   );
 }

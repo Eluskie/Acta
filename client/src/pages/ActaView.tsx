@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import TranscriptEditor, { type TranscriptParagraph } from "@/components/Transcr
 import AudioPlayer from "@/components/AudioPlayer";
 import PageHeader from "@/components/PageHeader";
 import type { Meeting } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function ActaView() {
   const [, navigate] = useLocation();
@@ -17,6 +18,8 @@ export default function ActaView() {
   const [paragraphs, setParagraphs] = useState<TranscriptParagraph[]>([]);
   const [actaContent, setActaContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const contentEditableRef = useRef<HTMLDivElement>(null);
 
   // Fetch meeting data
   const { data: meeting, isLoading, error } = useQuery<Meeting>({
@@ -45,7 +48,18 @@ export default function ActaView() {
     navigate("/");
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Save any pending edits before navigating
+    if (contentEditableRef.current) {
+      const currentContent = contentEditableRef.current.innerHTML || '';
+      // Always save the current content from the DOM to ensure we have the latest edits
+      if (currentContent.trim()) {
+        await saveActaContent(currentContent);
+      }
+    } else if (actaContent) {
+      // Fallback: save from state if ref is not available
+      await saveActaContent(actaContent);
+    }
     navigate(`/acta/${actaId}/send`);
   };
 
@@ -94,6 +108,96 @@ export default function ActaView() {
       .replace(/\n/g, '<br/>');
 
     return `<p class="mb-4">${formatted}</p>`;
+  };
+
+  // Convert HTML back to plain text/markdown for saving
+  const htmlToPlainText = (html: string): string => {
+    if (!html) return '';
+    
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Process each node recursively
+    const processNode = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || '';
+        return text.trim() ? text : '';
+      }
+      
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement;
+        const tagName = element.tagName.toLowerCase();
+        const children = Array.from(node.childNodes)
+          .map(processNode)
+          .filter(s => s.length > 0)
+          .join('');
+        
+        if (!children.trim()) return '';
+        
+        switch (tagName) {
+          case 'strong':
+          case 'b':
+            return `**${children.trim()}**`;
+          case 'h3':
+          case 'h2':
+          case 'h1':
+            return `## ${children.trim()}\n\n`;
+          case 'p':
+            const pContent = children.trim();
+            return pContent ? `${pContent}\n\n` : '';
+          case 'br':
+            return '\n';
+          case 'div':
+            return children;
+          default:
+            return children;
+        }
+      }
+      
+      return '';
+    };
+    
+    let text = Array.from(tempDiv.childNodes)
+      .map(processNode)
+      .filter(s => s.length > 0)
+      .join('');
+    
+    // Clean up extra whitespace and formatting
+    text = text
+      .replace(/\*\*\s+/g, '**')      // Remove spaces after **
+      .replace(/\s+\*\*/g, '**')      // Remove spaces before **
+      .replace(/\n{3,}/g, '\n\n')     // Max 2 consecutive newlines
+      .replace(/[ \t]+/g, ' ')        // Multiple spaces to single
+      .replace(/\n\s+\n/g, '\n\n')    // Remove lines with only whitespace
+      .trim();
+    
+    return text;
+  };
+
+  // Save acta content to backend
+  const saveActaContent = async (content: string) => {
+    if (!actaId) return;
+    
+    // Convert HTML to plain text if needed
+    const plainTextContent = content.startsWith('<') 
+      ? htmlToPlainText(content) 
+      : content;
+    
+    try {
+      setIsSaving(true);
+      await apiRequest("PATCH", `/api/meetings/${actaId}`, {
+        actaContent: plainTextContent,
+      });
+      
+      // Invalidate query to refresh data
+      await queryClient.invalidateQueries({ queryKey: ["/api/meetings", actaId] });
+    } catch (error) {
+      console.error("Error saving acta content:", error);
+      // Don't throw - allow user to continue even if save fails
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -169,12 +273,17 @@ export default function ActaView() {
 
                 {/* Content - Editable */}
                 <div
+                  ref={contentEditableRef}
                   contentEditable={isEditing}
                   suppressContentEditableWarning
-                  onBlur={(e) => {
+                  onBlur={async (e) => {
                     setIsEditing(false);
                     const newContent = e.currentTarget.innerHTML || '';
                     setActaContent(newContent);
+                    // Save to backend when editing finishes
+                    if (newContent && newContent !== actaContent) {
+                      await saveActaContent(newContent);
+                    }
                   }}
                   onClick={() => setIsEditing(true)}
                   className="my-8 text-foreground leading-relaxed text-justify"
@@ -215,6 +324,7 @@ export default function ActaView() {
             {!isEditing && (
               <div className="text-center mt-4 text-sm text-muted-foreground">
                 💡 Haz clic en el contenido para editarlo
+                {isSaving && <span className="ml-2">💾 Guardando...</span>}
               </div>
             )}
           </div>

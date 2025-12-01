@@ -1,16 +1,21 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, uploadDir } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
 import fs from "fs";
+import { clerkMiddleware } from "./middleware/auth";
 
 const app = express();
 const httpServer = createServer(app);
 
-// Absolute path to uploads directory
-const uploadsDir = path.join(process.cwd(), "uploads");
+// Clerk authentication middleware - must be before routes
+// This makes auth available on all requests via req.auth
+app.use(clerkMiddleware());
+
+// Use the same uploads directory as routes.ts (configured via UPLOADS_DIR env var or defaults to cwd/uploads)
+const uploadsDir = uploadDir;
 
 declare module "http" {
   interface IncomingMessage {

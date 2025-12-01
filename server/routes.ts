@@ -8,14 +8,19 @@ import OpenAI from "openai";
 import { jsPDF } from "jspdf";
 import { insertMeetingSchema, updateMeetingSchema, meetingStatusSchema, emailRecipientSchema } from "@shared/schema";
 import { z } from "zod";
+import { getUserId, requireAuthentication, syncUserToDatabase } from "./middleware/auth";
+import { getAuth } from "@clerk/express";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Configure multer for audio file uploads
-const uploadDir = path.join(process.cwd(), "uploads");
+// Use UPLOADS_DIR env var if set (for production), otherwise default to cwd/uploads
+export const uploadDir = process.env.UPLOADS_DIR || path.join(process.cwd(), "uploads");
+console.log(`[routes] Upload directory configured as: ${uploadDir}`);
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+  console.log(`[routes] Created uploads directory: ${uploadDir}`);
 }
 
 // Supported audio formats for Whisper
@@ -534,10 +539,42 @@ export async function registerRoutes(
     }
   });
 
-  // Get all meetings
+  // Sync user from Clerk webhook or on first request
+  app.post("/api/auth/sync-user", async (req: Request, res: Response) => {
+    try {
+      const auth = getAuth(req);
+      if (!auth?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Get user data from request body (sent from frontend after Clerk sign in)
+      const { email, firstName, lastName, imageUrl } = req.body;
+      
+      await storage.upsertUser({
+        id: auth.userId,
+        email: email || '',
+        firstName: firstName || null,
+        lastName: lastName || null,
+        imageUrl: imageUrl || null,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error syncing user:", error);
+      res.status(500).json({ error: "Failed to sync user" });
+    }
+  });
+
+  // Get all meetings - filtered by authenticated user
   app.get("/api/meetings", async (req: Request, res: Response) => {
     try {
-      const meetings = await storage.getAllMeetings();
+      const userId = getUserId(req);
+      // If not authenticated, return empty array (frontend will redirect to sign in)
+      if (!userId) {
+        return res.json([]);
+      }
+      
+      const meetings = await storage.getAllMeetings(userId);
       res.json(meetings);
     } catch (error) {
       console.error("Error fetching meetings:", error);
@@ -545,10 +582,11 @@ export async function registerRoutes(
     }
   });
 
-  // Get single meeting
+  // Get single meeting - only if owned by user
   app.get("/api/meetings/:id", async (req: Request, res: Response) => {
     try {
-      const meeting = await storage.getMeeting(req.params.id);
+      const userId = getUserId(req);
+      const meeting = await storage.getMeeting(req.params.id, userId || undefined);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
@@ -559,10 +597,17 @@ export async function registerRoutes(
     }
   });
 
-  // Create new meeting
+  // Create new meeting - requires authentication
   app.post("/api/meetings", async (req: Request, res: Response) => {
     try {
-      const validatedData = insertMeetingSchema.parse(req.body);
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      // Add userId to the meeting data
+      const dataWithUser = { ...req.body, userId };
+      const validatedData = insertMeetingSchema.parse(dataWithUser);
       const meeting = await storage.createMeeting(validatedData);
       res.status(201).json(meeting);
     } catch (error) {
@@ -574,11 +619,12 @@ export async function registerRoutes(
     }
   });
 
-  // Update meeting
+  // Update meeting - only if owned by user
   app.patch("/api/meetings/:id", async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req);
       const validatedData = updateMeetingSchema.parse(req.body);
-      const meeting = await storage.updateMeeting(req.params.id, validatedData);
+      const meeting = await storage.updateMeeting(req.params.id, validatedData, userId || undefined);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
@@ -592,10 +638,11 @@ export async function registerRoutes(
     }
   });
 
-  // Delete meeting
+  // Delete meeting - only if owned by user
   app.delete("/api/meetings/:id", async (req: Request, res: Response) => {
     try {
-      const deleted = await storage.deleteMeeting(req.params.id);
+      const userId = getUserId(req);
+      const deleted = await storage.deleteMeeting(req.params.id, userId || undefined);
       if (!deleted) {
         return res.status(404).json({ error: "Meeting not found" });
       }

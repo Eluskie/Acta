@@ -18,13 +18,14 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: InsertUser): Promise<User>;
   
-  // Meeting operations
-  getMeeting(id: string): Promise<Meeting | undefined>;
-  getAllMeetings(): Promise<Meeting[]>;
+  // Meeting operations (now filtered by userId)
+  getMeeting(id: string, userId?: string): Promise<Meeting | undefined>;
+  getAllMeetings(userId?: string): Promise<Meeting[]>;
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
-  updateMeeting(id: string, meeting: UpdateMeeting): Promise<Meeting | undefined>;
-  deleteMeeting(id: string): Promise<boolean>;
+  updateMeeting(id: string, meeting: UpdateMeeting, userId?: string): Promise<Meeting | undefined>;
+  deleteMeeting(id: string, userId?: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -40,9 +41,24 @@ export class MemStorage implements IStorage {
   }
 
   private initializeSampleData() {
+    // Demo user ID - in production this would be from Clerk
+    const demoUserId = "demo-user";
+    
+    // Create demo user
+    this.users.set(demoUserId, {
+      id: demoUserId,
+      email: "demo@example.com",
+      firstName: "María",
+      lastName: "García",
+      imageUrl: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    
     const sampleMeetings: Meeting[] = [
       {
         id: "meeting-1",
+        userId: demoUserId,
         buildingName: "Comunidad Edificio Alameda 42",
         attendeesCount: 12,
         date: new Date("2025-11-28T10:00:00"),
@@ -63,6 +79,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: "meeting-2",
+        userId: demoUserId,
         buildingName: "Residencial Las Flores",
         attendeesCount: 8,
         date: new Date("2025-11-25T18:00:00"),
@@ -79,6 +96,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: "meeting-3",
+        userId: demoUserId,
         buildingName: "Torre Mediterráneo",
         attendeesCount: 15,
         date: new Date("2025-11-20T11:00:00"),
@@ -107,24 +125,58 @@ export class MemStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+      (user) => user.email === username,
     );
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const now = new Date();
+    const user: User = { 
+      id: insertUser.id,
+      email: insertUser.email,
+      firstName: insertUser.firstName ?? null,
+      lastName: insertUser.lastName ?? null,
+      imageUrl: insertUser.imageUrl ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.users.set(insertUser.id, user);
     return user;
   }
 
-  // Meeting operations
-  async getMeeting(id: string): Promise<Meeting | undefined> {
-    return this.meetings.get(id);
+  async upsertUser(insertUser: InsertUser): Promise<User> {
+    const existing = this.users.get(insertUser.id);
+    const now = new Date();
+    const user: User = {
+      id: insertUser.id,
+      email: insertUser.email,
+      firstName: insertUser.firstName ?? null,
+      lastName: insertUser.lastName ?? null,
+      imageUrl: insertUser.imageUrl ?? null,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+    this.users.set(insertUser.id, user);
+    return user;
   }
 
-  async getAllMeetings(): Promise<Meeting[]> {
-    const meetings = Array.from(this.meetings.values());
+  // Meeting operations - filtered by userId
+  async getMeeting(id: string, userId?: string): Promise<Meeting | undefined> {
+    const meeting = this.meetings.get(id);
+    if (meeting && userId && meeting.userId !== userId) {
+      return undefined; // Don't expose other users' meetings
+    }
+    return meeting;
+  }
+
+  async getAllMeetings(userId?: string): Promise<Meeting[]> {
+    let meetings = Array.from(this.meetings.values());
+    
+    // Filter by userId if provided
+    if (userId) {
+      meetings = meetings.filter(m => m.userId === userId);
+    }
+    
     // Sort by date, most recent first
     return meetings.sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -134,17 +186,35 @@ export class MemStorage implements IStorage {
   async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
     const id = randomUUID();
     const now = new Date();
+    
+    // Ensure transcript is properly typed
+    let transcript: TranscriptParagraph[] | null = null;
+    if (insertMeeting.transcript) {
+      transcript = Array.isArray(insertMeeting.transcript) 
+        ? insertMeeting.transcript as TranscriptParagraph[]
+        : null;
+    }
+    
+    // Ensure recipients is properly typed
+    let recipients: EmailRecipient[] | null = null;
+    if (insertMeeting.recipients) {
+      recipients = Array.isArray(insertMeeting.recipients)
+        ? insertMeeting.recipients as EmailRecipient[]
+        : null;
+    }
+    
     const meeting: Meeting = {
       id,
+      userId: insertMeeting.userId,
       buildingName: insertMeeting.buildingName,
       attendeesCount: insertMeeting.attendeesCount ?? 0,
       date: insertMeeting.date ?? now,
       duration: insertMeeting.duration ?? 0,
       status: insertMeeting.status ?? "recording",
       audioUrl: insertMeeting.audioUrl ?? null,
-      transcript: (insertMeeting.transcript as TranscriptParagraph[] | null) ?? null,
+      transcript,
       actaContent: insertMeeting.actaContent ?? null,
-      recipients: (insertMeeting.recipients as EmailRecipient[] | null) ?? null,
+      recipients,
       createdAt: now,
       updatedAt: now,
     };
@@ -152,9 +222,14 @@ export class MemStorage implements IStorage {
     return meeting;
   }
 
-  async updateMeeting(id: string, updateData: UpdateMeeting): Promise<Meeting | undefined> {
+  async updateMeeting(id: string, updateData: UpdateMeeting, userId?: string): Promise<Meeting | undefined> {
     const existing = this.meetings.get(id);
     if (!existing) return undefined;
+    
+    // Verify ownership if userId provided
+    if (userId && existing.userId !== userId) {
+      return undefined;
+    }
 
     const updated: Meeting = {
       ...existing,
@@ -177,7 +252,15 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async deleteMeeting(id: string): Promise<boolean> {
+  async deleteMeeting(id: string, userId?: string): Promise<boolean> {
+    const existing = this.meetings.get(id);
+    if (!existing) return false;
+    
+    // Verify ownership if userId provided
+    if (userId && existing.userId !== userId) {
+      return false;
+    }
+    
     return this.meetings.delete(id);
   }
 }
@@ -191,7 +274,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    const result = await db.select().from(users).where(eq(users.email, username)).limit(1);
     return result[0];
   }
 
@@ -200,23 +283,80 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  // Meeting operations
-  async getMeeting(id: string): Promise<Meeting | undefined> {
+  // Upsert user - create if doesn't exist, update if does (for Clerk sync)
+  async upsertUser(insertUser: InsertUser): Promise<User> {
+    const result = await db
+      .insert(users)
+      .values(insertUser)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: insertUser.email,
+          firstName: insertUser.firstName,
+          lastName: insertUser.lastName,
+          imageUrl: insertUser.imageUrl,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  // Meeting operations - filtered by userId for multi-tenant isolation
+  async getMeeting(id: string, userId?: string): Promise<Meeting | undefined> {
+    if (userId) {
+      const result = await db
+        .select()
+        .from(meetings)
+        .where(eq(meetings.id, id))
+        .limit(1);
+      // Verify the meeting belongs to this user
+      const meeting = result[0];
+      if (meeting && meeting.userId !== userId) {
+        return undefined; // Don't expose other users' meetings
+      }
+      return meeting;
+    }
     const result = await db.select().from(meetings).where(eq(meetings.id, id)).limit(1);
     return result[0];
   }
 
-  async getAllMeetings(): Promise<Meeting[]> {
+  async getAllMeetings(userId?: string): Promise<Meeting[]> {
+    if (userId) {
+      const result = await db
+        .select()
+        .from(meetings)
+        .where(eq(meetings.userId, userId))
+        .orderBy(desc(meetings.date));
+      return result;
+    }
     const result = await db.select().from(meetings).orderBy(desc(meetings.date));
     return result;
   }
 
   async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
-    const result = await db.insert(meetings).values(insertMeeting).returning();
+    // Ensure transcript and recipients are properly typed for database
+    const values = {
+      ...insertMeeting,
+      transcript: insertMeeting.transcript 
+        ? (Array.isArray(insertMeeting.transcript) ? insertMeeting.transcript : null)
+        : null,
+      recipients: insertMeeting.recipients
+        ? (Array.isArray(insertMeeting.recipients) ? insertMeeting.recipients : null)
+        : null,
+    };
+    
+    const result = await db.insert(meetings).values(values).returning();
     return result[0];
   }
 
-  async updateMeeting(id: string, updateData: UpdateMeeting): Promise<Meeting | undefined> {
+  async updateMeeting(id: string, updateData: UpdateMeeting, userId?: string): Promise<Meeting | undefined> {
+    // First verify ownership if userId provided
+    if (userId) {
+      const existing = await this.getMeeting(id, userId);
+      if (!existing) return undefined;
+    }
+    
     const result = await db
       .update(meetings)
       .set({
@@ -228,7 +368,13 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async deleteMeeting(id: string): Promise<boolean> {
+  async deleteMeeting(id: string, userId?: string): Promise<boolean> {
+    // First verify ownership if userId provided
+    if (userId) {
+      const existing = await this.getMeeting(id, userId);
+      if (!existing) return false;
+    }
+    
     const result = await db.delete(meetings).where(eq(meetings.id, id)).returning();
     return result.length > 0;
   }

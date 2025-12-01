@@ -1,0 +1,5 @@
+# Building management feature (work in progress)
+client/src/pages/BuildingsPage.tsx
+client/src/pages/BuildingDetailPage.tsx
+client/src/components/BuildingCard.tsx
+client/src/lib/mockBuildings.ts

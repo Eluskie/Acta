@@ -34,6 +34,11 @@ export async function setupVite(server: Server, app: Express) {
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
+    // Don't intercept API routes or uploads - let them 404 properly
+    if (url.startsWith('/api') || url.startsWith('/uploads')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,

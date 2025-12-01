@@ -3,15 +3,21 @@ import { pgTable, text, varchar, integer, timestamp, jsonb } from "drizzle-orm/p
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users table - synced with Clerk
+// We store minimal user data, Clerk handles auth
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  id: varchar("id").primaryKey(), // Clerk user ID (e.g., "user_2abc123...")
+  email: text("email").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -44,6 +50,7 @@ export type EmailRecipient = z.infer<typeof emailRecipientSchema>;
 // Meetings table
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Clerk user ID
   buildingName: text("building_name").notNull(),
   attendeesCount: integer("attendees_count").notNull().default(0),
   date: timestamp("date").notNull().defaultNow(),
@@ -63,6 +70,7 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
   updatedAt: true,
 }).extend({
   status: meetingStatusSchema.optional().default("recording"),
+  userId: z.string(), // Required - Clerk user ID
 });
 
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;

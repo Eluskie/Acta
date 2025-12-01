@@ -28,21 +28,35 @@ export default function EmailRecipients({
     return emailRegex.test(email);
   };
 
+  const addEmail = (email: string) => {
+    const trimmedEmail = email.trim().replace(/[,\s]$/, "");
+    if (trimmedEmail && validateEmail(trimmedEmail)) {
+      const newRecipient: Recipient = {
+        id: Date.now().toString(),
+        email: trimmedEmail,
+        name: trimmedEmail.split("@")[0],
+      };
+      onChange?.([...recipients, newRecipient]);
+      setInputValue("");
+      return true;
+    }
+    return false;
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
+    // Enter, Space, or Comma adds the email
+    if (e.key === "Enter" || e.key === " " || e.key === ",") {
       e.preventDefault();
-      const email = inputValue.trim().replace(/,$/, "");
-      if (email && validateEmail(email)) {
-        const newRecipient: Recipient = {
-          id: Date.now().toString(),
-          email,
-          name: email.split("@")[0], // Use part before @ as default name
-        };
-        onChange?.([...recipients, newRecipient]);
-        setInputValue("");
-      }
+      addEmail(inputValue);
     } else if (e.key === "Backspace" && !inputValue && recipients.length > 0) {
       onChange?.(recipients.slice(0, -1));
+    }
+  };
+
+  // Auto-add email when user clicks away (e.g., clicks Send button)
+  const handleBlur = () => {
+    if (inputValue.trim()) {
+      addEmail(inputValue);
     }
   };
 
@@ -75,13 +89,14 @@ export default function EmailRecipients({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           placeholder={recipients.length === 0 ? "Añadir correo electrónico..." : ""}
           className="flex-1 min-w-[200px] border-0 bg-transparent p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/60"
           data-testid="input-add-recipient"
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        Escribe un correo y pulsa Enter para añadirlo
+        Pulsa <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border">Enter</kbd>, <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border">Espacio</kbd> o simplemente haz clic fuera para añadir
       </p>
     </div>
   );

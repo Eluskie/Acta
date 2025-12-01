@@ -97,6 +97,40 @@ export default function ActaSend() {
     navigate("/");
   };
 
+  const handleSaveAsDraft = async () => {
+    if (recipients.length === 0) {
+      // Just go back if no recipients
+      navigate("/");
+      return;
+    }
+
+    try {
+      // Save recipients without sending
+      const formattedRecipients = recipients.map(r => ({
+        id: r.id,
+        name: r.name || r.email.split("@")[0],
+        email: r.email,
+      }));
+
+      await apiRequest("PATCH", `/api/meetings/${actaId}`, {
+        recipients: formattedRecipients,
+      });
+
+      toast({
+        title: "Borrador guardado",
+        description: "Los destinatarios han sido guardados. Puedes enviar el acta más tarde.",
+      });
+
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo guardar el borrador",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSend = async () => {
     setIsSending(true);
     try {
@@ -278,19 +312,21 @@ export default function ActaSend() {
               />
             </div>
 
-            <div className="space-y-3">
+            {/* Action Buttons - Reorganized for clarity */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground font-medium">
+                Acciones disponibles:
+              </p>
+
+              {/* Primary: Send Email */}
               <Button
                 onClick={handleSend}
                 disabled={isSending || recipients.length === 0}
-                className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
               >
                 {isSending ? (
                   <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                      className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
-                    />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Enviando...
                   </>
                 ) : (
@@ -303,38 +339,32 @@ export default function ActaSend() {
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      whileHover={{
-                        x: [0, 3, 0],
-                        y: [0, -3, 0],
-                        transition: { duration: 0.5, ease: "easeInOut" }
-                      }}
-                      animate={{
-                        x: [0, 2, 0],
-                        y: [0, -2, 0],
-                        transition: {
-                          repeat: Infinity,
-                          duration: 2,
-                          ease: "easeInOut",
-                          repeatDelay: 1
-                        }
-                      }}
                     >
                       <line x1="22" y1="2" x2="11" y2="13"></line>
                       <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </motion.svg>
-                    Enviar acta por correo
+                    Enviar por correo
                   </>
                 )}
               </Button>
 
-              {/* Download button - Mobile */}
+              {/* Secondary: Download PDF */}
               <Button
                 onClick={handleDownload}
                 variant="outline"
-                className="w-full h-12 text-base font-semibold lg:hidden"
+                className="w-full h-12 text-base font-semibold"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Descargar PDF
+              </Button>
+
+              {/* Tertiary: Save as Draft */}
+              <Button
+                onClick={handleSaveAsDraft}
+                variant="ghost"
+                className="w-full h-12 text-base font-medium text-muted-foreground hover:text-foreground"
+              >
+                Guardar y volver más tarde
               </Button>
             </div>
           </div>

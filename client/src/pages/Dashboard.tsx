@@ -31,7 +31,8 @@ export default function Dashboard() {
 
   // Calculate stats
   const totalActas = meetings.length;
-  const pendingActas = meetings.filter(m => m.status === 'review' || m.status === 'processing' || m.status === 'recording').length;
+  const draftActas = meetings.filter(m => m.status === 'review').length; // Only count "Borrador" status
+  const inProgressActas = meetings.filter(m => m.status === 'processing' || m.status === 'recording').length;
   const sentActas = meetings.filter(m => m.status === 'sent').length;
 
   const formattedMeetings = meetings.map(meeting => ({
@@ -95,14 +96,14 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              {pendingActas > 0 && (
+              {draftActas > 0 && (
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
                     <AlertCircle className="w-4 h-4 text-amber-600" />
                   </div>
                   <div>
-                    <span className="text-xl font-bold text-foreground">{pendingActas}</span>
-                    <span className="text-sm text-muted-foreground ml-1">pendientes</span>
+                    <span className="text-xl font-bold text-foreground">{draftActas}</span>
+                    <span className="text-sm text-muted-foreground ml-1">{draftActas === 1 ? 'borrador' : 'borradores'}</span>
                   </div>
                 </div>
               )}

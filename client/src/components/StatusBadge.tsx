@@ -15,15 +15,15 @@ const statusConfig: Record<ActaStatus, { label: string; className: string }> = {
   },
   processing: {
     label: "Procesando",
-    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
   },
   review: {
-    label: "Completada",
-    className: "bg-green-100 text-green-700 border-green-200",
+    label: "Borrador",
+    className: "bg-amber-100 text-amber-700 border-amber-200",
   },
   sent: {
     label: "Enviada",
-    className: "bg-blue-100 text-blue-700 border-blue-200",
+    className: "bg-green-100 text-green-700 border-green-200",
   },
 };
 

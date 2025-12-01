@@ -394,7 +394,15 @@ function generateActaPDF(meeting: any): Buffer {
 }
 
 // Generate PDF as Base64 string (for email attachments)
+// IMPORTANT: Uses the same generateActaPDF function to ensure PDFs are identical
 function generateActaPDFBase64(meeting: any): string {
+  const pdfBuffer = generateActaPDF(meeting);
+  return pdfBuffer.toString('base64');
+}
+
+// DEPRECATED: Old duplicate code removed to prevent PDF mismatch
+// The above function now uses generateActaPDF to ensure identical PDFs
+function generateActaPDFBase64_OLD_DONOTUSE(meeting: any): string {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

@@ -46,6 +46,12 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
 
   const startRecording = useCallback(async () => {
     try {
+      // Prevent multiple simultaneous recordings
+      if (isRecording || mediaRecorderRef.current) {
+        console.warn("[useAudioRecorder] Recording already in progress, ignoring duplicate start");
+        return;
+      }
+
       setError(null);
       chunksRef.current = [];
 

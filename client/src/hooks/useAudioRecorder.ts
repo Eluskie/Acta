@@ -48,7 +48,14 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     try {
       setError(null);
       chunksRef.current = [];
-      
+
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          "La API de medios no está disponible. Asegúrese de que la aplicación se ejecute en HTTPS o localhost."
+        );
+      }
+
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {

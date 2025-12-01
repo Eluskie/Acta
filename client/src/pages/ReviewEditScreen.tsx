@@ -1,34 +1,29 @@
 import { useState, useEffect } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Send, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import TranscriptEditor, { type TranscriptParagraph } from "@/components/TranscriptEditor";
-import EmailRecipients, { type Recipient } from "@/components/EmailRecipients";
 import AudioPlayer from "@/components/AudioPlayer";
-import type { Meeting, EmailRecipient } from "@shared/schema";
+import PageHeader from "@/components/PageHeader";
+import type { Meeting } from "@shared/schema";
 
 interface ReviewEditScreenProps {
   buildingName: string;
   meeting?: Meeting | null;
   onBack?: () => void;
-  onSend?: (recipients: Array<{ id: string; name: string; email: string }>, actaContent: string) => Promise<void>;
-  isSending?: boolean;
+  onNext?: () => void;
 }
 
 export default function ReviewEditScreen({
   buildingName,
   meeting,
   onBack,
-  onSend,
-  isSending = false,
+  onNext,
 }: ReviewEditScreenProps) {
   const [paragraphs, setParagraphs] = useState<TranscriptParagraph[]>([]);
   const [actaContent, setActaContent] = useState("");
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [subject, setSubject] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (meeting?.transcript && Array.isArray(meeting.transcript)) {
@@ -42,156 +37,209 @@ export default function ReviewEditScreen({
     }
   }, [meeting?.actaContent]);
 
-  useEffect(() => {
-    if (meeting?.recipients && Array.isArray(meeting.recipients)) {
-      const existingRecipients = (meeting.recipients as EmailRecipient[]).map(r => ({
-        id: r.id,
-        email: r.email,
-        name: r.name,
-      }));
-      setRecipients(existingRecipients);
-    }
-  }, [meeting?.recipients]);
+  const audioDuration = meeting?.duration || 0;
+  const meetingDate = meeting?.date ? new Date(meeting.date) : new Date();
 
-  useEffect(() => {
-    const formattedDate = meeting?.date
-      ? new Date(meeting.date).toLocaleDateString("es-ES", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-      : new Date().toLocaleDateString("es-ES", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
+  const formattedDate = meetingDate.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-    setSubject(`Acta de Junta Ordinaria - ${buildingName} - ${formattedDate}`);
-  }, [buildingName, meeting?.date]);
+  const formattedDateLong = meetingDate.toLocaleDateString("es-ES", {
+    weekday: 'long',
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-  const handleSend = async () => {
-    const formattedRecipients = recipients.map(r => ({
-      id: r.id,
-      name: r.name || "",
-      email: r.email,
-    }));
-    await onSend?.(formattedRecipients, actaContent);
+  // Format content: convert markdown-like syntax to HTML
+  const formatContent = (content: string): string => {
+    if (!content) return '';
+
+    let formatted = content
+      // Bold text: **text** -> <strong>text</strong>
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      // Numbered lists: 1. -> <br/>1.
+      .replace(/(\d+\.\s+)/g, '<br/><br/>$1')
+      // Headers: ## -> larger text
+      .replace(/##\s*([^\n]+)/g, '<h3 class="text-lg font-bold mt-6 mb-3">$1</h3>')
+      // Paragraphs: double line breaks
+      .replace(/\n\n/g, '</p><p class="mb-4">')
+      // Single line breaks
+      .replace(/\n/g, '<br/>');
+
+    return `<p class="mb-4">${formatted}</p>`;
   };
 
-  const audioDuration = meeting?.duration || 0;
-
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
-      <header className="sticky top-0 z-50 bg-background border-b border-border/40 h-14">
-        <div className="max-w-[1600px] mx-auto px-4 h-full flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              data-testid="button-back"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div className="flex flex-col">
-              <h1 className="font-semibold text-sm leading-none" data-testid="text-building-name">{buildingName}</h1>
-              <p className="text-xs text-muted-foreground mt-1">
-                Revisar y enviar acta
-              </p>
-            </div>
-          </div>
-
+    <div className="flex flex-col h-screen bg-background">
+      {/* Header */}
+      <PageHeader
+        title="Acta Oficial"
+        subtitle={buildingName}
+        onBack={onBack}
+        action={
           <Button
-            onClick={handleSend}
-            disabled={isSending || recipients.length === 0 || !actaContent}
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            data-testid="button-send-acta"
+            onClick={onNext}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-10 px-6"
           >
-            {isSending ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Enviando...
-              </>
-            ) : (
-              <>
-                <Send className="w-3.5 h-3.5" />
-                Enviar Acta
-              </>
-            )}
+            Continuar <ChevronRight className="w-4 h-4" />
           </Button>
-        </div>
-      </header>
+        }
+      />
 
+      {/* A4 Document Container */}
       <ScrollArea className="flex-1">
-        <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-          {/* 1. Acta Content - Editable */}
-          <section>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-foreground tracking-tight mb-1">Acta Generada</h2>
-              <p className="text-sm text-muted-foreground">Revisa y edita el contenido del acta antes de enviar</p>
-            </div>
-            <Textarea
-              value={actaContent}
-              onChange={(e) => setActaContent(e.target.value)}
-              className="min-h-[400px] font-mono text-sm"
-              placeholder="El acta se generará automáticamente..."
-              data-testid="textarea-acta-content"
-            />
-          </section>
+        <div className="py-6 md:py-12 px-4">
+          <div className="w-full max-w-[21cm] mx-auto">
+            {/* A4 Paper */}
+            <div
+              className="bg-card shadow-2xl overflow-hidden w-full border border-border/20"
+              style={{
+                minHeight: '29.7cm',
+                maxWidth: '21cm'
+              }}
+            >
+              {/* Document Content */}
+              <div
+                className="px-12 md:px-20 py-16 md:py-20"
+                style={{
+                  fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                  fontSize: '11pt',
+                  lineHeight: '1.6',
+                  minHeight: '29.7cm'
+                }}
+              >
+                {/* Header */}
+                <div className="text-center mb-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
+                    ACTA OFICIAL NO. {meeting?.id || new Date().getFullYear() + '-' + Math.floor(Math.random() * 100)}
+                  </p>
+                  <h1 className="text-3xl font-bold text-foreground mb-1">
+                    ACTA DE REUNIÓN
+                  </h1>
+                  <div className="w-48 h-0.5 bg-foreground mx-auto mt-3"></div>
+                </div>
 
-          {/* 2. Email Recipients */}
-          <section>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-foreground tracking-tight mb-1">Destinatarios</h2>
-              <p className="text-sm text-muted-foreground">Añade los correos electrónicos de los destinatarios</p>
-            </div>
-            <EmailRecipients
-              recipients={recipients}
-              onChange={setRecipients}
-            />
-            <div className="mt-4">
-              <Label htmlFor="subject" className="text-sm font-medium">
-                Asunto del correo
-              </Label>
-              <Input
-                id="subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="mt-2"
-                data-testid="input-email-subject"
-              />
-            </div>
-          </section>
+                {/* Meeting Info */}
+                <div className="my-10 text-justify text-foreground leading-relaxed">
+                  <p>
+                    En <strong>{buildingName}</strong>, a <strong>{formattedDateLong}</strong>, siendo las{' '}
+                    <strong>{meetingDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} horas</strong>, se
+                    reúne el comité de administración del Edificio {buildingName}.
+                  </p>
+                </div>
 
-          {/* 3. Transcript - For Reference */}
-          <section>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-foreground tracking-tight mb-1">Transcripción</h2>
-              <p className="text-sm text-muted-foreground">Transcripción original de la reunión (solo referencia)</p>
+                {/* Attendees Box */}
+                {meeting?.attendeesCount && (
+                  <div className="my-8 bg-muted/30 border border-border rounded p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                      ASISTENTES
+                    </h3>
+                    <p className="text-sm text-foreground">
+                      Total de asistentes: {meeting.attendeesCount} personas.
+                    </p>
+                  </div>
+                )}
+
+                {/* Content - Editable */}
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => {
+                    setIsEditing(false);
+                    const newContent = e.currentTarget.innerHTML || '';
+                    // Store the HTML content as-is to preserve formatting
+                    setActaContent(newContent);
+                  }}
+                  onClick={() => setIsEditing(true)}
+                  className="my-8 text-foreground leading-relaxed text-justify"
+                  style={{
+                    outline: isEditing ? '2px solid hsl(var(--primary))' : 'none',
+                    outlineOffset: '-4px',
+                    cursor: isEditing ? 'text' : 'pointer',
+                    padding: isEditing ? '8px' : '0',
+                    borderRadius: '4px',
+                    minHeight: '400px'
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: actaContent ? (actaContent.startsWith('<') ? actaContent : formatContent(actaContent)) : '<p class="text-muted-foreground italic text-center py-12">Haz clic para editar el contenido del acta...</p>'
+                  }}
+                />
+
+                {/* Signatures */}
+                <div className="mt-32 pt-16 border-t-2 border-border">
+                  <div className="grid grid-cols-2 gap-16">
+                    <div className="text-center">
+                      <div className="h-20 border-b-2 border-border mb-3"></div>
+                      <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
+                        FIRMA PRESIDENTE
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <div className="h-20 border-b-2 border-border mb-3"></div>
+                      <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
+                        FIRMA SECRETARIA
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* Edit Hint */}
+            {!isEditing && (
+              <div className="text-center mt-4 text-sm text-muted-foreground">
+                💡 Haz clic en el contenido para editarlo
+              </div>
+            )}
+          </div>
+        </div>
+      </ScrollArea>
+
+      {/* Continue Button (Mobile, above audio) */}
+      <div className="md:hidden p-4 bg-card border-t border-border">
+        <Button
+          onClick={onNext}
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-12 text-base font-semibold"
+        >
+          Continuar <ChevronRight className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Audio Player */}
+      <div className="p-4 bg-card border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <AudioPlayer audioUrl={meeting?.audioUrl} duration={audioDuration} />
+        </div>
+      </div>
+
+      {/* Transcript Section */}
+      <div className="border-t border-border bg-card">
+        <details className="group">
+          <summary className="cursor-pointer px-4 md:px-6 py-4 flex items-center justify-between hover:bg-muted/50 max-w-5xl mx-auto">
+            <div>
+              <h2 className="font-semibold text-foreground">Transcripción Original</h2>
+              <p className="text-sm text-muted-foreground">Consulta la transcripción completa (solo referencia)</p>
+            </div>
+            <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="px-4 md:px-6 pb-6 max-h-[400px] overflow-y-auto max-w-5xl mx-auto">
             {paragraphs.length > 0 ? (
-              <div className="bg-muted/30 rounded-lg border p-6">
+              <div className="bg-muted/30 rounded-lg border border-border p-6">
                 <TranscriptEditor
                   paragraphs={paragraphs}
                   onChange={setParagraphs}
                 />
               </div>
             ) : (
-              <div className="text-center py-12 text-muted-foreground bg-muted/30 rounded-lg border">
+              <div className="text-center py-12 text-muted-foreground bg-muted/30 rounded-lg border border-border">
                 <p>No hay transcripción disponible</p>
               </div>
             )}
-          </section>
-        </div>
-      </ScrollArea>
-
-      {/* Audio Player at Bottom */}
-      <div className="sticky bottom-0 bg-background border-t p-4">
-        <div className="max-w-4xl mx-auto">
-          <AudioPlayer audioUrl={meeting?.audioUrl} duration={audioDuration} />
-        </div>
+          </div>
+        </details>
       </div>
     </div>
   );

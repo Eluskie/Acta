@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Bell, Settings, Menu } from "lucide-react";
+import { Search, Bell, Settings } from "lucide-react";
 import { useState } from "react";
 
 interface HeaderProps {
@@ -19,11 +19,8 @@ export default function Header({ onSearch }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 bg-background border-b border-border/40 h-14">
       <div className="flex items-center justify-between h-full px-4 max-w-[1600px] mx-auto">
-        {/* Left: Logo/Menu */}
+        {/* Left: Logo */}
         <div className="flex items-center gap-4 w-[200px]">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-            <Menu className="w-5 h-5" />
-          </Button>
           <div className="font-semibold text-lg tracking-tight flex items-center gap-2">
             <div className="w-6 h-6 bg-primary rounded-md flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-xs">A</span>

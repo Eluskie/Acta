@@ -1,13 +1,17 @@
-import { 
-  type User, 
-  type InsertUser, 
-  type Meeting, 
-  type InsertMeeting, 
+import {
+  type User,
+  type InsertUser,
+  type Meeting,
+  type InsertMeeting,
   type UpdateMeeting,
   type TranscriptParagraph,
-  type EmailRecipient
+  type EmailRecipient,
+  users,
+  meetings,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -178,4 +182,59 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database storage implementation using Drizzle ORM
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  // Meeting operations
+  async getMeeting(id: string): Promise<Meeting | undefined> {
+    const result = await db.select().from(meetings).where(eq(meetings.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getAllMeetings(): Promise<Meeting[]> {
+    const result = await db.select().from(meetings).orderBy(desc(meetings.date));
+    return result;
+  }
+
+  async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
+    const result = await db.insert(meetings).values(insertMeeting).returning();
+    return result[0];
+  }
+
+  async updateMeeting(id: string, updateData: UpdateMeeting): Promise<Meeting | undefined> {
+    const result = await db
+      .update(meetings)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(eq(meetings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteMeeting(id: string): Promise<boolean> {
+    const result = await db.delete(meetings).where(eq(meetings.id, id)).returning();
+    return result.length > 0;
+  }
+}
+
+// Use database storage in production, memory storage in development
+export const storage = process.env.NODE_ENV === "production" || process.env.DATABASE_URL
+  ? new DatabaseStorage()
+  : new MemStorage();

@@ -23,14 +23,20 @@ export default function EmailRecipients({
 }: EmailRecipientsProps) {
   const [inputValue, setInputValue] = useState("");
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       const email = inputValue.trim().replace(/,$/, "");
-      if (email && email.includes("@")) {
+      if (email && validateEmail(email)) {
         const newRecipient: Recipient = {
           id: Date.now().toString(),
           email,
+          name: email.split("@")[0], // Use part before @ as default name
         };
         onChange?.([...recipients, newRecipient]);
         setInputValue("");
@@ -54,7 +60,7 @@ export default function EmailRecipients({
             className="gap-1 pl-3 pr-1.5 py-1.5 text-sm"
             data-testid={`badge-recipient-${recipient.id}`}
           >
-            <span>{recipient.name || recipient.email}</span>
+            <span>{recipient.email}</span>
             <button
               onClick={() => removeRecipient(recipient.id)}
               className="ml-1 hover:bg-muted rounded-full p-0.5"

@@ -5,6 +5,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
+import puppeteer from "puppeteer";
 import { insertMeetingSchema, updateMeetingSchema, meetingStatusSchema, emailRecipientSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -224,7 +225,7 @@ export async function registerRoutes(
       const duration = transcription.duration ? Math.round(transcription.duration) : 0;
 
       // Convert file path to URL (e.g., uploads/audio-123.webm -> /uploads/audio-123.webm)
-      const audioUrl = audioFilePath ? `/${audioFilePath.replace(/\\/g, '/')}` : undefined;
+      const audioUrl = audioFilePath ? `/uploads/${path.basename(audioFilePath)}` : undefined;
 
       // Update meeting with transcript and audio URL
       const updatedMeeting = await storage.updateMeeting(meetingId, {
@@ -448,6 +449,262 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
       console.error("Error sending acta:", error);
       res.status(500).json({
         error: "Error al enviar el acta",
+        details: error instanceof Error ? error.message : "Error desconocido"
+      });
+    }
+  });
+
+  // Download acta as PDF
+  app.get("/api/meetings/:id/download-pdf", async (req: Request, res: Response) => {
+    const meetingId = req.params.id;
+
+    try {
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Reunión no encontrada" });
+      }
+
+      const meetingDate = meeting.date ? new Date(meeting.date) : new Date();
+      const formattedDateLong = meetingDate.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      const formattedTime = meetingDate.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      // Generate HTML document matching ReviewEditScreen
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acta - ${meeting.buildingName}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Georgia, "Times New Roman", Times, serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: white;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 60px 50px;
+      margin: 0 auto;
+      background: white;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .acta-number {
+      font-size: 8pt;
+      color: #9ca3af;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 24pt;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .divider {
+      width: 180px;
+      height: 2px;
+      background-color: #1a1a1a;
+      margin: 12px auto;
+    }
+
+    .meeting-info {
+      margin: 40px 0;
+      text-align: justify;
+      line-height: 1.8;
+    }
+
+    .attendees-box {
+      margin: 32px 0;
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 24px;
+    }
+
+    .attendees-title {
+      font-size: 8pt;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      color: #6b7280;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .attendees-text {
+      font-size: 10pt;
+      color: #374151;
+    }
+
+    .content {
+      margin: 32px 0;
+      text-align: justify;
+      line-height: 1.8;
+    }
+
+    .content p {
+      margin-bottom: 16px;
+    }
+
+    .content strong {
+      font-weight: bold;
+    }
+
+    .content h3 {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+    .signatures {
+      margin-top: 120px;
+      padding-top: 60px;
+      border-top: 2px solid #d1d5db;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .signature-block {
+      width: 40%;
+      text-align: center;
+    }
+
+    .signature-line {
+      border-bottom: 2px solid #9ca3af;
+      height: 80px;
+      margin-bottom: 12px;
+    }
+
+    .signature-label {
+      font-size: 8pt;
+      font-weight: bold;
+      letter-spacing: 1.2px;
+      color: #6b7280;
+      text-transform: uppercase;
+    }
+
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <div class="header">
+      <p class="acta-number">
+        ACTA OFICIAL NO. ${meeting.id || new Date().getFullYear() + '-' + Math.floor(Math.random() * 100)}
+      </p>
+      <h1 class="title">ACTA DE REUNIÓN</h1>
+      <div class="divider"></div>
+    </div>
+
+    <!-- Meeting Info -->
+    <div class="meeting-info">
+      <p>
+        En <strong>${meeting.buildingName}</strong>, a <strong>${formattedDateLong}</strong>, siendo las
+        <strong>${formattedTime} horas</strong>, se reúne el comité de administración del Edificio ${meeting.buildingName}.
+      </p>
+    </div>
+
+    <!-- Attendees -->
+    ${meeting.attendeesCount ? `
+    <div class="attendees-box">
+      <p class="attendees-title">ASISTENTES</p>
+      <p class="attendees-text">
+        Total de asistentes: ${meeting.attendeesCount} personas.
+      </p>
+    </div>
+    ` : ''}
+
+    <!-- Content -->
+    <div class="content">
+      ${meeting.actaContent || '<p>Contenido del acta no disponible.</p>'}
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures">
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <p class="signature-label">FIRMA PRESIDENTE</p>
+      </div>
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <p class="signature-label">FIRMA SECRETARIA</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+      `;
+
+      // Launch Puppeteer and generate PDF
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+      // Generate PDF with A4 format
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '0mm',
+          left: '0mm'
+        }
+      });
+
+      await browser.close();
+
+      // Send PDF to client
+      const fileName = `Acta_${meeting.buildingName.replace(/\s+/g, '_')}_${meeting.id}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(pdf);
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({
+        error: "Error al generar el PDF",
         details: error instanceof Error ? error.message : "Error desconocido"
       });
     }

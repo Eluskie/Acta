@@ -9,10 +9,11 @@ import Dashboard from "@/pages/Dashboard";
 import ReviewEditScreen from "@/pages/ReviewEditScreen";
 import RecordingScreen from "@/components/RecordingScreen";
 import ProcessingScreen from "@/components/ProcessingScreen";
+import SendScreen from "@/pages/SendScreen";
 import NotFound from "@/pages/not-found";
 import type { Meeting } from "@shared/schema";
 
-type AppScreen = "dashboard" | "recording" | "processing" | "review";
+type AppScreen = "dashboard" | "recording" | "processing" | "review" | "send";
 
 interface MeetingData {
   id?: string;
@@ -208,16 +209,22 @@ function AppContent() {
     }
   };
 
-  const handleSendActa = async (recipients: Array<{ id: string; name: string; email: string }>, actaContent: string) => {
+  const handleSendActa = async (recipients: Array<{ id: string; name: string; email: string }>, subject: string, message: string) => {
     if (!currentMeeting?.id) return;
 
     await sendActaMutation.mutateAsync({
       meetingId: currentMeeting.id,
       recipients,
+      subject,
+      message,
     });
 
     // After successful send, go back to dashboard
     handleDone();
+  };
+
+  const handleGoToSend = () => {
+    setCurrentScreen("send");
   };
 
   const handleDone = () => {
@@ -237,6 +244,9 @@ function AppContent() {
         break;
       case "review":
         setCurrentScreen("dashboard");
+        break;
+      case "send":
+        setCurrentScreen("review");
         break;
       default:
         setCurrentScreen("dashboard");
@@ -268,8 +278,19 @@ function AppContent() {
         buildingName={meetingData.buildingName}
         meeting={currentMeeting}
         onBack={handleBack}
+        onNext={handleGoToSend}
+      />
+    );
+  }
+
+  if (currentScreen === "send" && meetingData) {
+    return (
+      <SendScreen
+        buildingName={meetingData.buildingName}
+        meeting={currentMeeting}
+        onBack={handleBack}
         onSend={handleSendActa}
-        isSending={sendActaMutation.isPending}
+        onDone={handleDone}
       />
     );
   }

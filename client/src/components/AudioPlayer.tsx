@@ -20,14 +20,16 @@ export default function AudioPlayer({ audioUrl, duration = 0, className }: Audio
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !audioUrl) return;
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
     };
 
     const handleLoadedMetadata = () => {
-      setAudioDuration(audio.duration);
+      if (isFinite(audio.duration)) {
+        setAudioDuration(audio.duration);
+      }
       setHasError(false);
     };
 
@@ -46,6 +48,9 @@ export default function AudioPlayer({ audioUrl, duration = 0, className }: Audio
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("error", handleError);
+
+    // Force load the audio to trigger metadata loading
+    audio.load();
 
     return () => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
@@ -80,14 +85,16 @@ export default function AudioPlayer({ audioUrl, duration = 0, className }: Audio
   };
 
   const handleSeek = (value: number[]) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = value[0];
-    setCurrentTime(value[0]);
+    if (!audioRef.current || !isFinite(value[0]) || !isFinite(audioDuration)) return;
+    const seekTime = Math.max(0, Math.min(value[0], audioDuration));
+    audioRef.current.currentTime = seekTime;
+    setCurrentTime(seekTime);
   };
 
   const handleSkip = (seconds: number) => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !isFinite(audioDuration)) return;
     const newTime = Math.max(0, Math.min(audioDuration, audioRef.current.currentTime + seconds));
+    if (!isFinite(newTime)) return;
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
   };

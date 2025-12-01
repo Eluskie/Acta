@@ -348,11 +348,11 @@ export default function ActaSend() {
                 )}
               </Button>
 
-              {/* Secondary: Download PDF */}
+              {/* Secondary: Download PDF - Mobile Only */}
               <Button
                 onClick={handleDownload}
                 variant="outline"
-                className="w-full h-12 text-base font-semibold"
+                className="w-full h-12 text-base font-semibold lg:hidden"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Descargar PDF

@@ -10,6 +10,7 @@ import { insertMeetingSchema, updateMeetingSchema, meetingStatusSchema, emailRec
 import { z } from "zod";
 import { getUserId, requireAuthentication, syncUserToDatabase } from "./middleware/auth";
 import { getAuth } from "@clerk/express";
+import { sendActaEmail } from "./services/email";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -940,20 +941,41 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
       const subject = req.body.subject || `Acta - ${meeting.buildingName}`;
       const message = req.body.message || "Adjunto encontrará el acta de la reunión.";
 
+      // Generate PDF in base64 format for email attachment
+      const pdfBase64 = generateActaPDFBase64(meeting);
+      const fileName = `Acta_${meeting.buildingName.replace(/\s+/g, '_')}_${meeting.id}.pdf`;
+      const meetingDate = new Date(meeting.date).toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+      // Send email with PDF attachment using Resend
+      try {
+        await sendActaEmail({
+          to: recipients,
+          subject,
+          message,
+          pdfBase64,
+          pdfFileName: fileName,
+          buildingName: meeting.buildingName,
+          meetingDate,
+        });
+
+        console.log("✅ Email sent successfully to:", recipients.map((r) => `${r.name} <${r.email}>`).join(", "));
+      } catch (emailError) {
+        console.error("Failed to send email:", emailError);
+        return res.status(500).json({
+          error: "Error al enviar el correo electrónico",
+          details: emailError instanceof Error ? emailError.message : "Error desconocido"
+        });
+      }
+
       // Update the meeting with recipients and mark as sent
       const updatedMeeting = await storage.updateMeeting(meetingId, {
         recipients,
         status: "sent",
       });
-
-      // Log what would be sent (for demo purposes)
-      // In production, integrate with an email service like SendGrid, Resend, etc.
-      console.log("=== EMAIL SENT (DEMO) ===");
-      console.log("To:", recipients.map((r) => `${r.name} <${r.email}>`).join(", "));
-      console.log("Subject:", subject);
-      console.log("Message:", message);
-      console.log("Acta Content:", meeting.actaContent?.substring(0, 100) + "...");
-      console.log("========================");
 
       res.json({
         success: true,

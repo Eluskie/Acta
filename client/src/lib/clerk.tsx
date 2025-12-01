@@ -1,6 +1,7 @@
 import { ClerkProvider, useAuth, useUser, SignIn, SignUp, UserButton } from "@clerk/clerk-react";
 import { useLocation } from "wouter";
 import type { ReactNode } from "react";
+import { useUserSync } from "@/hooks/useUserSync";
 
 // Get the publishable key from environment
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -37,13 +38,17 @@ export function ClerkProviderWithRouting({ children }: { children: ReactNode }) 
 
 /**
  * ProtectedRoute
- * 
+ *
  * Wraps content that requires authentication.
  * Shows sign-in page if not authenticated.
+ * Automatically syncs user to database on first load.
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const [, navigate] = useLocation();
+
+  // Sync user to database when authenticated
+  useUserSync();
 
   // If Clerk is not configured, allow access (development mode)
   if (!CLERK_PUBLISHABLE_KEY) {

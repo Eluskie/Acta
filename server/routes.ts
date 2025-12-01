@@ -605,7 +605,26 @@ export async function registerRoutes(
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      
+
+      // Ensure user exists in database (auto-sync from Clerk if needed)
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        console.log(`[auto-sync] User ${userId} not found in database, creating...`);
+        try {
+          await storage.upsertUser({
+            id: userId,
+            email: `user-${userId}@clerk.temp`, // Temporary email, will be updated on next sync
+            firstName: null,
+            lastName: null,
+            imageUrl: null,
+          });
+          console.log(`[auto-sync] User ${userId} created successfully`);
+        } catch (syncError) {
+          console.error(`[auto-sync] Failed to create user ${userId}:`, syncError);
+          return res.status(500).json({ error: "Failed to sync user account" });
+        }
+      }
+
       // Add userId to the meeting data
       const dataWithUser = { ...req.body, userId };
       const validatedData = insertMeetingSchema.parse(dataWithUser);

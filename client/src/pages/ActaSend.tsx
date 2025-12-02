@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, FileText, Download, Loader2, FileSignature, Plus, Edit } from "lucide-react";
+import { Check, FileText, Download, Loader2, FileSignature, Plus, Edit, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import EmailRecipients, { type Recipient } from "@/components/EmailRecipients";
@@ -32,6 +32,9 @@ export default function ActaSend() {
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [currentSigner, setCurrentSigner] = useState<"president" | "secretary" | null>(null);
 
+  // Mobile signatures collapse state
+  const [signaturesExpanded, setSignaturesExpanded] = useState(false);
+
   // Fetch meeting data
   const { data: meeting, isLoading, error } = useQuery<Meeting>({
     queryKey: ["/api/meetings", actaId],
@@ -47,7 +50,7 @@ export default function ActaSend() {
   useEffect(() => {
     if (meeting) {
       setSubject(`Acta Oficial - ${meeting.buildingName} - ${new Date().toLocaleDateString("es-ES")}`);
-      
+
       // Load existing recipients if any
       if (meeting.recipients && Array.isArray(meeting.recipients)) {
         const existingRecipients = (meeting.recipients as EmailRecipient[]).map(r => ({
@@ -253,7 +256,7 @@ export default function ActaSend() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (error) {
       console.error("Error downloading PDF:", error);
@@ -383,6 +386,114 @@ export default function ActaSend() {
                 rows={6}
                 className="text-base resize-none leading-relaxed"
               />
+            </div>
+
+            {/* Mobile Signatures Section - Collapsible */}
+            <div className="lg:hidden border border-border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setSignaturesExpanded(!signaturesExpanded)}
+                className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <FileSignature className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-semibold text-sm">Firmas</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${(meeting?.presidentSignature && meeting?.secretarySignature)
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}>
+                    {[meeting?.presidentSignature, meeting?.secretarySignature].filter(Boolean).length}/2
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${signaturesExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {signaturesExpanded && (
+                <div className="p-4 space-y-3 bg-background">
+                  {/* President Signature */}
+                  <div className="border border-border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-muted-foreground">Presidente</span>
+                      {meeting?.presidentSignature && (
+                        <Check className="w-4 h-4 text-green-600" />
+                      )}
+                    </div>
+
+                    {meeting?.presidentSignature ? (
+                      <>
+                        <img
+                          src={meeting.presidentSignature}
+                          alt="Firma Presidente"
+                          className="w-full h-16 object-contain border border-border/50 rounded bg-white"
+                        />
+                        <p className="text-xs text-foreground font-medium mt-2">
+                          {meeting.presidentName || "Presidente"}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenSignatureModal("president")}
+                          className="w-full mt-2 h-8 text-xs"
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Editar firma
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenSignatureModal("president")}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Añadir firma
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Secretary Signature */}
+                  <div className="border border-border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-muted-foreground">Secretaria</span>
+                      {meeting?.secretarySignature && (
+                        <Check className="w-4 h-4 text-green-600" />
+                      )}
+                    </div>
+
+                    {meeting?.secretarySignature ? (
+                      <>
+                        <img
+                          src={meeting.secretarySignature}
+                          alt="Firma Secretaria"
+                          className="w-full h-16 object-contain border border-border/50 rounded bg-white"
+                        />
+                        <p className="text-xs text-foreground font-medium mt-2">
+                          {meeting.secretaryName || "Secretaria"}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenSignatureModal("secretary")}
+                          className="w-full mt-2 h-8 text-xs"
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Editar firma
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenSignatureModal("secretary")}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Añadir firma
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons - Reorganized for clarity */}

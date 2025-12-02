@@ -109,7 +109,7 @@ export const updateMeetingSchema = z.object({
   secretaryName: z.string().optional().nullable(),
   presidentSignature: z.string().optional().nullable(),
   secretarySignature: z.string().optional().nullable(),
-  signedAt: z.date().optional().nullable(),
+  signedAt: z.coerce.date().optional().nullable(),
   // Legacy DocuSeal fields
   docusealDocumentId: z.string().optional().nullable(),
   presidentEmail: z.string().email().optional().nullable(),

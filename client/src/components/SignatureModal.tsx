@@ -35,34 +35,54 @@ export default function SignatureModal({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
 
-  // Initialize canvas when dialog opens
-  useEffect(() => {
-    if (!open || !canvasRef.current) return;
+  // Initialize canvas - use callback ref for immediate setup
+  const initializeCanvas = (canvas: HTMLCanvasElement | null) => {
+    if (!canvas) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    // Small delay to ensure canvas is fully rendered and sized
+    setTimeout(() => {
+      const rect = canvas.getBoundingClientRect();
 
-    if (!ctx) return;
+      // Set canvas internal dimensions to match display size
+      // This ensures proper coordinate mapping
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
 
-    // Set up canvas context
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        console.error("Failed to get canvas context");
+        return;
+      }
 
-    // Clear canvas with white background
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Scale context to match device pixel ratio
+      ctx.scale(dpr, dpr);
 
-    ctxRef.current = ctx;
-  }, [open]);
+      // Set up canvas context
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
 
-  // Reset when dialog closes
+      // Clear canvas with white background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+
+      ctxRef.current = ctx;
+
+      console.log("Canvas initialized:", { width: canvas.width, height: canvas.height, dpr, hasCtx: !!ctx });
+    }, 100);
+  };
+
+  // Re-initialize when dialog opens
   useEffect(() => {
     if (!open) {
+      ctxRef.current = null;
       setName(defaultName);
       setHasSigned(false);
       setIsDrawing(false);
+    } else if (canvasRef.current) {
+      initializeCanvas(canvasRef.current);
     }
   }, [open, defaultName]);
 
@@ -72,34 +92,44 @@ export default function SignatureModal({
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
 
-    if ('touches' in e) {
-      // Touch event
-      if (e.touches.length === 0) return null;
+    if ('touches' in e && e.touches.length > 0) {
       return {
         x: e.touches[0].clientX - rect.left,
         y: e.touches[0].clientY - rect.top,
       };
-    } else {
-      // Mouse event
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
     }
+
+    return {
+      x: (e as React.MouseEvent).clientX - rect.left,
+      y: (e as React.MouseEvent).clientY - rect.top,
+    };
   };
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const point = getCoordinates(e);
-    if (!point || !ctxRef.current) return;
+    // Fallback: initialize canvas if context is not ready
+    if (!ctxRef.current && canvasRef.current) {
+      console.log("Context not ready, initializing now...");
+      initializeCanvas(canvasRef.current);
+      // Wait a bit for initialization
+      setTimeout(() => {
+        startDrawing(e);
+      }, 150);
+      return;
+    }
 
+    const point = getCoordinates(e);
+    if (!point || !ctxRef.current) {
+      console.log("startDrawing failed:", { point, hasCtx: !!ctxRef.current });
+      return;
+    }
+
+    console.log("startDrawing:", point);
     setIsDrawing(true);
     ctxRef.current.beginPath();
     ctxRef.current.moveTo(point.x, point.y);
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
     if (!isDrawing) return;
 
     const point = getCoordinates(e);
@@ -174,10 +204,9 @@ export default function SignatureModal({
             <div className="relative">
               <canvas
                 ref={canvasRef}
-                width={536}
-                height={200}
                 className="w-full border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair"
                 style={{
+                  height: "200px",
                   touchAction: "none",
                   userSelect: "none",
                 }}

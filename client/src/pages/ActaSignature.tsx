@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -6,16 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, FileSignature, Mail, Trash2, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, FileSignature, Mail } from "lucide-react";
+import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import PageHeader from "@/components/PageHeader";
 import type { Meeting } from "@shared/schema";
-
-interface Point {
-  x: number;
-  y: number;
-}
 
 export default function ActaSignature() {
   const [, navigate] = useLocation();
@@ -24,19 +19,11 @@ export default function ActaSignature() {
   const { toast } = useToast();
 
   const [autoSign, setAutoSign] = useState(true);
-  const [presidentName, setPresidentName] = useState("Presidente");
-  const [secretaryName, setSecretaryName] = useState("Secretaria");
-  const [showSignaturePads, setShowSignaturePads] = useState(false);
-  const [presidentSigned, setPresidentSigned] = useState(false);
-  const [secretarySigned, setSecretarySigned] = useState(false);
-  const [isDrawingPresident, setIsDrawingPresident] = useState(false);
-  const [isDrawingSecretary, setIsDrawingSecretary] = useState(false);
-
-  // Canvas refs
-  const presidentCanvasRef = useRef<HTMLCanvasElement>(null);
-  const secretaryCanvasRef = useRef<HTMLCanvasElement>(null);
-  const presidentCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const secretaryCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const [presidentName, setPresidentName] = useState("");
+  const [secretaryName, setSecretaryName] = useState("");
+  const [presidentEmail, setPresidentEmail] = useState("");
+  const [secretaryEmail, setSecretaryEmail] = useState("");
+  const [docusealEmbedUrl, setDocusealEmbedUrl] = useState<string | null>(null);
 
   // Fetch meeting data
   const { data: meeting, isLoading, error } = useQuery<Meeting>({
@@ -49,71 +36,28 @@ export default function ActaSignature() {
     enabled: !!actaId,
   });
 
-  // Initialize canvases
-  useEffect(() => {
-    if (!showSignaturePads) return;
-
-    const initCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>, ctxRef: React.MutableRefObject<CanvasRenderingContext2D | null>) => {
-      if (!canvasRef.current) return;
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctxRef.current = ctx;
-    };
-
-    initCanvas(presidentCanvasRef, presidentCtxRef);
-    initCanvas(secretaryCanvasRef, secretaryCtxRef);
-  }, [showSignaturePads]);
-
-  // Save signatures mutation
-  const saveSignaturesMutation = useMutation({
-    mutationFn: async ({
-      presidentSignature,
-      secretarySignature,
-      presidentName,
-      secretaryName,
-    }: {
-      presidentSignature: string;
-      secretarySignature: string;
-      presidentName: string;
-      secretaryName: string;
-    }) => {
-      const res = await apiRequest("POST", `/api/meetings/${actaId}/save-signatures`, {
-        presidentSignature,
-        secretarySignature,
-        presidentName,
-        secretaryName,
+  // Request DocuSeal signatures mutation
+  const requestSignatureMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/meetings/${actaId}/request-signature`, {
+        presidentEmail: presidentEmail.trim(),
+        secretaryEmail: secretaryEmail.trim(),
       });
       return res.json();
     },
-    onSuccess: async () => {
-      // Invalidate and refetch to ensure fresh data
-      await queryClient.invalidateQueries({ queryKey: ["/api/meetings", actaId] });
-      await queryClient.refetchQueries({ queryKey: ["/api/meetings", actaId] });
-
+    onSuccess: (data) => {
+      // Set the embed URL to show DocuSeal iframe
+      setDocusealEmbedUrl(data.embedUrl);
+      
       toast({
-        title: "¡Acta firmada!",
-        description: "Las firmas se han guardado correctamente",
+        title: "¡Solicitud de firma creada!",
+        description: "Ahora pueden firmar en DocuSeal",
       });
-
-      // Small delay to ensure cache is updated
-      setTimeout(() => {
-        navigate(`/acta/${actaId}/send`);
-      }, 100);
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "No se pudieron guardar las firmas",
+        description: error instanceof Error ? error.message : "No se pudo crear la solicitud de firma",
         variant: "destructive",
       });
     },
@@ -124,6 +68,7 @@ export default function ActaSignature() {
   };
 
   const handleSignNow = async () => {
+    // Validate inputs
     if (!presidentName.trim() || !secretaryName.trim()) {
       toast({
         title: "Nombres requeridos",
@@ -133,118 +78,28 @@ export default function ActaSignature() {
       return;
     }
 
-    setShowSignaturePads(true);
-  };
-
-  // Drawing functions
-  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvasRef: React.RefObject<HTMLCanvasElement>): Point | null => {
-    if (!canvasRef.current) return null;
-
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-
-    if ('touches' in e) {
-      if (e.touches.length === 0) return null;
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
-    } else {
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
-    }
-  };
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, type: "president" | "secretary") => {
-    e.preventDefault();
-    const canvasRef = type === "president" ? presidentCanvasRef : secretaryCanvasRef;
-    const ctxRef = type === "president" ? presidentCtxRef : secretaryCtxRef;
-    const point = getCoordinates(e, canvasRef);
-
-    if (!point || !ctxRef.current) return;
-
-    if (type === "president") {
-      setIsDrawingPresident(true);
-    } else {
-      setIsDrawingSecretary(true);
-    }
-
-    ctxRef.current.beginPath();
-    ctxRef.current.moveTo(point.x, point.y);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, type: "president" | "secretary") => {
-    e.preventDefault();
-    const isDrawing = type === "president" ? isDrawingPresident : isDrawingSecretary;
-    if (!isDrawing) return;
-
-    const canvasRef = type === "president" ? presidentCanvasRef : secretaryCanvasRef;
-    const ctxRef = type === "president" ? presidentCtxRef : secretaryCtxRef;
-    const point = getCoordinates(e, canvasRef);
-
-    if (!point || !ctxRef.current) return;
-
-    ctxRef.current.lineTo(point.x, point.y);
-    ctxRef.current.stroke();
-  };
-
-  const stopDrawing = (type: "president" | "secretary") => {
-    const isDrawing = type === "president" ? isDrawingPresident : isDrawingSecretary;
-
-    if (isDrawing) {
-      if (type === "president") {
-        setIsDrawingPresident(false);
-        setPresidentSigned(true);
-      } else {
-        setIsDrawingSecretary(false);
-        setSecretarySigned(true);
-      }
-    }
-  };
-
-  const handleSaveSignatures = async () => {
-    if (!presidentCanvasRef.current || !secretaryCanvasRef.current) return;
-
-    if (!presidentSigned || !secretarySigned) {
+    if (!presidentEmail.trim() || !secretaryEmail.trim()) {
       toast({
-        title: "Firmas incompletas",
-        description: "Por favor, ambas personas deben firmar",
+        title: "Emails requeridos",
+        description: "Por favor ingresa los emails del presidente y secretaria",
         variant: "destructive",
       });
       return;
     }
 
-    // Get signatures as base64 data URLs
-    const presidentSignature = presidentCanvasRef.current.toDataURL("image/png");
-    const secretarySignature = secretaryCanvasRef.current.toDataURL("image/png");
-
-    await saveSignaturesMutation.mutateAsync({
-      presidentSignature,
-      secretarySignature,
-      presidentName,
-      secretaryName,
-    });
-  };
-
-  const handleClearSignature = (type: "president" | "secretary") => {
-    const canvasRef = type === "president" ? presidentCanvasRef : secretaryCanvasRef;
-    const ctxRef = type === "president" ? presidentCtxRef : secretaryCtxRef;
-
-    if (!canvasRef.current || !ctxRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = ctxRef.current;
-
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (type === "president") {
-      setPresidentSigned(false);
-    } else {
-      setSecretarySigned(false);
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(presidentEmail.trim()) || !emailRegex.test(secretaryEmail.trim())) {
+      toast({
+        title: "Emails inválidos",
+        description: "Por favor ingresa emails válidos",
+        variant: "destructive",
+      });
+      return;
     }
+
+    // Request signature from DocuSeal
+    await requestSignatureMutation.mutateAsync();
   };
 
   const handleSendByEmail = () => {
@@ -269,130 +124,45 @@ export default function ActaSignature() {
     );
   }
 
-  // If showing signature pads
-  if (showSignaturePads) {
+  // If DocuSeal embed URL is available, show the iframe
+  if (docusealEmbedUrl) {
     return (
       <div className="flex flex-col h-screen bg-background">
         <PageHeader
-          title="Firmar Acta"
+          title="Firmar Acta con DocuSeal"
           subtitle={meeting.buildingName}
-          onBack={() => setShowSignaturePads(false)}
+          onBack={() => setDocusealEmbedUrl(null)}
         />
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 overflow-hidden">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="w-full h-full"
           >
             {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-              <p className="font-semibold mb-1">📝 Instrucciones</p>
-              <p>Pasa el dispositivo al presidente y secretaria para que firmen directamente en la pantalla.</p>
+            <div className="bg-blue-50 border-b border-blue-200 p-4 text-sm text-blue-800">
+              <p className="font-semibold mb-1">📝 Firmar en DocuSeal</p>
+              <p>{presidentName} ({presidentEmail}) y {secretaryName} ({secretaryEmail}) deben firmar el documento.</p>
             </div>
 
-            {/* President Signature */}
-            <div className="bg-card rounded-lg border border-border p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base font-semibold">Firma del Presidente</Label>
-                  <p className="text-sm text-muted-foreground">{presidentName}</p>
-                </div>
-                {presidentSigned && (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Check className="w-5 h-5" />
-                    <span className="text-sm font-medium">Firmado</span>
-                  </div>
-                )}
-              </div>
+            {/* DocuSeal iframe */}
+            <iframe
+              src={docusealEmbedUrl}
+              className="w-full h-[calc(100vh-200px)] border-0"
+              title="DocuSeal Signature"
+              allow="camera; microphone"
+            />
 
-              <div className="relative">
-                <canvas
-                  ref={presidentCanvasRef}
-                  width={600}
-                  height={200}
-                  className="w-full border-2 border-dashed border-border rounded-lg cursor-crosshair"
-                  style={{ touchAction: "none", userSelect: "none" }}
-                  onMouseDown={(e) => startDrawing(e, "president")}
-                  onMouseMove={(e) => draw(e, "president")}
-                  onMouseUp={() => stopDrawing("president")}
-                  onMouseLeave={() => stopDrawing("president")}
-                  onTouchStart={(e) => startDrawing(e, "president")}
-                  onTouchMove={(e) => draw(e, "president")}
-                  onTouchEnd={() => stopDrawing("president")}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleClearSignature("president")}
-                  className="absolute top-2 right-2"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Borrar
-                </Button>
-              </div>
+            {/* Actions */}
+            <div className="p-4 border-t border-border bg-card">
+              <Button
+                onClick={() => navigate(`/acta/${actaId}/send`)}
+                className="w-full"
+              >
+                Ir a Enviar Acta
+              </Button>
             </div>
-
-            {/* Secretary Signature */}
-            <div className="bg-card rounded-lg border border-border p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base font-semibold">Firma de la Secretaria</Label>
-                  <p className="text-sm text-muted-foreground">{secretaryName}</p>
-                </div>
-                {secretarySigned && (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Check className="w-5 h-5" />
-                    <span className="text-sm font-medium">Firmado</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <canvas
-                  ref={secretaryCanvasRef}
-                  width={600}
-                  height={200}
-                  className="w-full border-2 border-dashed border-border rounded-lg cursor-crosshair"
-                  style={{ touchAction: "none", userSelect: "none" }}
-                  onMouseDown={(e) => startDrawing(e, "secretary")}
-                  onMouseMove={(e) => draw(e, "secretary")}
-                  onMouseUp={() => stopDrawing("secretary")}
-                  onMouseLeave={() => stopDrawing("secretary")}
-                  onTouchStart={(e) => startDrawing(e, "secretary")}
-                  onTouchMove={(e) => draw(e, "secretary")}
-                  onTouchEnd={() => stopDrawing("secretary")}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleClearSignature("secretary")}
-                  className="absolute top-2 right-2"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Borrar
-                </Button>
-              </div>
-            </div>
-
-            {/* Save Button */}
-            <Button
-              onClick={handleSaveSignatures}
-              disabled={!presidentSigned || !secretarySigned || saveSignaturesMutation.isPending}
-              className="w-full h-14 text-lg font-bold"
-            >
-              {saveSignaturesMutation.isPending ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Guardando firmas...
-                </>
-              ) : (
-                <>
-                  <FileSignature className="w-5 h-5 mr-2" />
-                  Guardar firmas y continuar
-                </>
-              )}
-            </Button>
           </motion.div>
         </div>
       </div>
@@ -451,7 +221,7 @@ export default function ActaSignature() {
               </div>
             </div>
 
-            {/* Name inputs */}
+            {/* Name and email inputs */}
             {autoSign && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -473,6 +243,20 @@ export default function ActaSignature() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="president-email" className="text-base font-semibold">
+                    Email del Presidente
+                  </Label>
+                  <Input
+                    id="president-email"
+                    type="email"
+                    placeholder="juan.perez@ejemplo.com"
+                    value={presidentEmail}
+                    onChange={(e) => setPresidentEmail(e.target.value)}
+                    className="h-12 text-base"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="secretary-name" className="text-base font-semibold">
                     Nombre de la Secretaria
                   </Label>
@@ -482,6 +266,20 @@ export default function ActaSignature() {
                     placeholder="María García"
                     value={secretaryName}
                     onChange={(e) => setSecretaryName(e.target.value)}
+                    className="h-12 text-base"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="secretary-email" className="text-base font-semibold">
+                    Email de la Secretaria
+                  </Label>
+                  <Input
+                    id="secretary-email"
+                    type="email"
+                    placeholder="maria.garcia@ejemplo.com"
+                    value={secretaryEmail}
+                    onChange={(e) => setSecretaryEmail(e.target.value)}
                     className="h-12 text-base"
                   />
                 </div>
@@ -495,16 +293,33 @@ export default function ActaSignature() {
                   {/* Primary: Sign now */}
                   <Button
                     onClick={handleSignNow}
+                    disabled={
+                      !presidentName.trim() || 
+                      !presidentEmail.trim() || 
+                      !secretaryName.trim() || 
+                      !secretaryEmail.trim() ||
+                      requestSignatureMutation.isPending
+                    }
                     className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                   >
-                    <FileSignature className="w-5 h-5 mr-2" />
-                    Firmar y cerrar ahora
+                    {requestSignatureMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Preparando DocuSeal...
+                      </>
+                    ) : (
+                      <>
+                        <FileSignature className="w-5 h-5 mr-2" />
+                        Firmar con DocuSeal
+                      </>
+                    )}
                   </Button>
 
                   {/* Secondary: Send by email */}
                   <button
                     onClick={handleSendByEmail}
                     className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+                    disabled={requestSignatureMutation.isPending}
                   >
                     Enviar por email para firmar más tarde
                   </button>

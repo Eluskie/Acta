@@ -9,6 +9,7 @@ import { ClerkProviderWithRouting, ProtectedRoute } from "@/lib/clerk";
 import Dashboard from "@/pages/Dashboard";
 import ActaNew from "@/pages/ActaNew";
 import ActaView from "@/pages/ActaView";
+import ActaSignature from "@/pages/ActaSignature";
 import ActaSend from "@/pages/ActaSend";
 import SignInPage from "@/pages/SignInPage";
 import SignUpPage from "@/pages/SignUpPage";
@@ -45,7 +46,13 @@ function App() {
                 <ActaView />
               </ProtectedRoute>
             </Route>
-            
+
+            <Route path="/acta/:id/signature">
+              <ProtectedRoute>
+                <ActaSignature />
+              </ProtectedRoute>
+            </Route>
+
             <Route path="/acta/:id/send">
               <ProtectedRoute>
                 <ActaSend />

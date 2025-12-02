@@ -239,13 +239,25 @@ export class MemStorage implements IStorage {
       duration: updateData.duration ?? existing.duration,
       status: updateData.status ?? existing.status,
       audioUrl: updateData.audioUrl ?? existing.audioUrl,
-      transcript: updateData.transcript !== undefined 
-        ? (updateData.transcript as TranscriptParagraph[] | null) 
+      transcript: updateData.transcript !== undefined
+        ? (updateData.transcript as TranscriptParagraph[] | null)
         : existing.transcript,
-      actaContent: updateData.actaContent ?? existing.actaContent,
-      recipients: updateData.recipients !== undefined 
-        ? (updateData.recipients as EmailRecipient[] | null) 
+      actaContent: updateData.actaContent !== undefined ? updateData.actaContent : existing.actaContent,
+      recipients: updateData.recipients !== undefined
+        ? (updateData.recipients as EmailRecipient[] | null)
         : existing.recipients,
+      // Signature fields
+      signatureStatus: updateData.signatureStatus ?? existing.signatureStatus,
+      presidentName: updateData.presidentName ?? existing.presidentName,
+      secretaryName: updateData.secretaryName ?? existing.secretaryName,
+      presidentSignature: updateData.presidentSignature ?? existing.presidentSignature,
+      secretarySignature: updateData.secretarySignature ?? existing.secretarySignature,
+      signedAt: updateData.signedAt ?? existing.signedAt,
+      // Legacy DocuSeal fields
+      docusealDocumentId: updateData.docusealDocumentId ?? existing.docusealDocumentId,
+      presidentEmail: updateData.presidentEmail ?? existing.presidentEmail,
+      secretaryEmail: updateData.secretaryEmail ?? existing.secretaryEmail,
+      signatureRemindersSent: updateData.signatureRemindersSent ?? existing.signatureRemindersSent,
       updatedAt: new Date(),
     };
     this.meetings.set(id, updated);

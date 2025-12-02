@@ -60,6 +60,7 @@ export default function ActaView() {
       // Fallback: save from state if ref is not available
       await saveActaContent(actaContent);
     }
+    // Go directly to send page (signatures integrated there)
     navigate(`/acta/${actaId}/send`);
   };
 

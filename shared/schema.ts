@@ -47,6 +47,11 @@ export const emailRecipientSchema = z.object({
 
 export type EmailRecipient = z.infer<typeof emailRecipientSchema>;
 
+// Signature status enum
+export const signatureStatuses = ["pending", "signed", "sent_unsigned"] as const;
+export const signatureStatusSchema = z.enum(signatureStatuses);
+export type SignatureStatus = z.infer<typeof signatureStatusSchema>;
+
 // Meetings table
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -60,6 +65,18 @@ export const meetings = pgTable("meetings", {
   transcript: jsonb("transcript").$type<TranscriptParagraph[]>(),
   actaContent: text("acta_content"),
   recipients: jsonb("recipients").$type<EmailRecipient[]>(),
+  // Signature fields
+  signatureStatus: text("signature_status"), // 'pending', 'signed', or 'sent_unsigned'
+  presidentName: text("president_name"),
+  secretaryName: text("secretary_name"),
+  presidentSignature: text("president_signature"), // Base64 signature image
+  secretarySignature: text("secretary_signature"), // Base64 signature image
+  signedAt: timestamp("signed_at"),
+  // Legacy DocuSeal fields (kept for backward compatibility)
+  docusealDocumentId: text("docuseal_document_id"),
+  presidentEmail: text("president_email"),
+  secretaryEmail: text("secretary_email"),
+  signatureRemindersSent: jsonb("signature_reminders_sent").$type<string[]>(), // Array of ISO date strings
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -87,6 +104,17 @@ export const updateMeetingSchema = z.object({
   transcript: z.array(transcriptParagraphSchema).optional().nullable(),
   actaContent: z.string().optional().nullable(),
   recipients: z.array(emailRecipientSchema).optional().nullable(),
+  signatureStatus: signatureStatusSchema.optional().nullable(),
+  presidentName: z.string().optional().nullable(),
+  secretaryName: z.string().optional().nullable(),
+  presidentSignature: z.string().optional().nullable(),
+  secretarySignature: z.string().optional().nullable(),
+  signedAt: z.date().optional().nullable(),
+  // Legacy DocuSeal fields
+  docusealDocumentId: z.string().optional().nullable(),
+  presidentEmail: z.string().email().optional().nullable(),
+  secretaryEmail: z.string().email().optional().nullable(),
+  signatureRemindersSent: z.array(z.string()).optional().nullable(),
 });
 export type UpdateMeeting = z.infer<typeof updateMeetingSchema>;
 

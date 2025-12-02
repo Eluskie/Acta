@@ -46,6 +46,8 @@ export default function Dashboard() {
     duration: meeting.duration || undefined,
     attendeesCount: meeting.attendeesCount,
     status: meeting.status as ActaStatus,
+    signatureStatus: meeting.signatureStatus || null,
+    signatureRemindersSent: meeting.signatureRemindersSent || [],
   }));
 
   const filteredMeetings = formattedMeetings.filter((m) =>

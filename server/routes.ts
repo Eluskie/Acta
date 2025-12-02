@@ -11,6 +11,7 @@ import { z } from "zod";
 import { getUserId, requireAuthentication, syncUserToDatabase } from "./middleware/auth";
 import { getAuth } from "@clerk/express";
 import { sendActaEmail } from "./services/email";
+import { createSignatureRequest, getSubmissionStatus, verifyWebhookSignature } from "./services/docuseal";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -373,20 +374,63 @@ function generateActaPDF(meeting: any): Buffer {
 
   // Signature blocks
   const signatureWidth = 60;
+  const signatureHeight = 20;
   const leftSignatureX = margin + 20;
   const rightSignatureX = pageWidth - margin - signatureWidth - 20;
 
-  // Left signature
+  // Add signature images if they exist
+  if (meeting.presidentSignature && meeting.presidentSignature.startsWith('data:image')) {
+    try {
+      doc.addImage(
+        meeting.presidentSignature,
+        'PNG',
+        leftSignatureX,
+        yPosition - signatureHeight - 2,
+        signatureWidth,
+        signatureHeight,
+        undefined,
+        'FAST'
+      );
+    } catch (e) {
+      console.error('Error adding president signature to PDF:', e);
+      // Continue without signature - don't break PDF generation
+    }
+  }
+
+  if (meeting.secretarySignature && meeting.secretarySignature.startsWith('data:image')) {
+    try {
+      doc.addImage(
+        meeting.secretarySignature,
+        'PNG',
+        rightSignatureX,
+        yPosition - signatureHeight - 2,
+        signatureWidth,
+        signatureHeight,
+        undefined,
+        'FAST'
+      );
+    } catch (e) {
+      console.error('Error adding secretary signature to PDF:', e);
+      // Continue without signature - don't break PDF generation
+    }
+  }
+
+  // Left signature line and label
   doc.setDrawColor(156, 163, 175);
   doc.line(leftSignatureX, yPosition, leftSignatureX + signatureWidth, yPosition);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(107, 114, 128);
-  doc.text('FIRMA PRESIDENTE', leftSignatureX + signatureWidth / 2, yPosition + 8, { align: 'center' });
 
-  // Right signature
+  // Show name if available, otherwise generic label
+  const presidentLabel = meeting.presidentName || 'FIRMA PRESIDENTE';
+  doc.text(presidentLabel, leftSignatureX + signatureWidth / 2, yPosition + 8, { align: 'center' });
+
+  // Right signature line and label
   doc.line(rightSignatureX, yPosition, rightSignatureX + signatureWidth, yPosition);
-  doc.text('FIRMA SECRETARIA', rightSignatureX + signatureWidth / 2, yPosition + 8, { align: 'center' });
+
+  const secretaryLabel = meeting.secretaryName || 'FIRMA SECRETARIA';
+  doc.text(secretaryLabel, rightSignatureX + signatureWidth / 2, yPosition + 8, { align: 'center' });
 
   // Return as Buffer
   const pdfOutput = doc.output('arraybuffer');
@@ -1015,6 +1059,198 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
         error: "Error al enviar el acta",
         details: error instanceof Error ? error.message : "Error desconocido"
       });
+    }
+  });
+
+  // Save canvas signatures (simple signature method)
+  app.post("/api/meetings/:id/save-signatures", async (req: Request, res: Response) => {
+    const meetingId = req.params.id;
+
+    try {
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Reunión no encontrada" });
+      }
+
+      const { presidentSignature, secretarySignature, presidentName, secretaryName } = req.body;
+
+      if (!presidentSignature || !secretarySignature || !presidentName || !secretaryName) {
+        return res.status(400).json({
+          error: "Se requieren ambas firmas y nombres"
+        });
+      }
+
+      // Update meeting with signatures
+      const updatedMeeting = await storage.updateMeeting(meetingId, {
+        signatureStatus: "signed",
+        presidentSignature,
+        secretarySignature,
+        presidentName,
+        secretaryName,
+        signedAt: new Date(),
+      });
+
+      console.log(`✅ Signatures saved for meeting ${meetingId}`);
+
+      res.json({
+        success: true,
+        meeting: updatedMeeting,
+      });
+    } catch (error) {
+      console.error("Error saving signatures:", error);
+      res.status(500).json({
+        error: "Error al guardar las firmas",
+        details: error instanceof Error ? error.message : "Error desconocido"
+      });
+    }
+  });
+
+  // Request signatures via DocuSeal (LEGACY - kept for backward compatibility)
+  app.post("/api/meetings/:id/request-signature", async (req: Request, res: Response) => {
+    const meetingId = req.params.id;
+
+    try {
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Reunión no encontrada" });
+      }
+
+      const { presidentEmail, secretaryEmail } = req.body;
+
+      if (!presidentEmail || !secretaryEmail) {
+        return res.status(400).json({
+          error: "Se requieren los correos del presidente y secretaria"
+        });
+      }
+
+      // Validate email formats
+      const emailSchema = z.string().email();
+      if (!emailSchema.safeParse(presidentEmail).success || !emailSchema.safeParse(secretaryEmail).success) {
+        return res.status(400).json({ error: "Formato de email inválido" });
+      }
+
+      // Generate PDF for signing
+      const pdfBase64 = generateActaPDFBase64(meeting);
+
+      // Create signature request in DocuSeal
+      const docusealResponse = await createSignatureRequest(
+        meeting,
+        pdfBase64,
+        presidentEmail,
+        secretaryEmail
+      );
+
+      // Update meeting with signature info
+      const updatedMeeting = await storage.updateMeeting(meetingId, {
+        signatureStatus: "pending",
+        docusealDocumentId: docusealResponse.id,
+        presidentEmail,
+        secretaryEmail,
+      });
+
+      console.log(`✅ Signature request created for meeting ${meetingId}`);
+
+      res.json({
+        success: true,
+        documentId: docusealResponse.id,
+        embedUrl: docusealResponse.embed_src,
+        submissionUrl: docusealResponse.submission_url,
+        meeting: updatedMeeting,
+      });
+    } catch (error) {
+      console.error("Error requesting signature:", error);
+      res.status(500).json({
+        error: "Error al solicitar firmas",
+        details: error instanceof Error ? error.message : "Error desconocido"
+      });
+    }
+  });
+
+  // Send signature reminder
+  app.post("/api/meetings/:id/send-reminder", async (req: Request, res: Response) => {
+    const meetingId = req.params.id;
+
+    try {
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Reunión no encontrada" });
+      }
+
+      if (meeting.signatureStatus !== "pending") {
+        return res.status(400).json({ error: "Este acta no está pendiente de firma" });
+      }
+
+      if (!meeting.docusealDocumentId) {
+        return res.status(400).json({ error: "No se encontró solicitud de firma" });
+      }
+
+      // Get submission status from DocuSeal
+      const status = await getSubmissionStatus(meeting.docusealDocumentId);
+
+      // Add reminder timestamp
+      const reminders = meeting.signatureRemindersSent || [];
+      reminders.push(new Date().toISOString());
+
+      await storage.updateMeeting(meetingId, {
+        signatureRemindersSent: reminders,
+      });
+
+      res.json({
+        success: true,
+        message: "Recordatorio enviado",
+        status,
+      });
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+      res.status(500).json({
+        error: "Error al enviar recordatorio",
+        details: error instanceof Error ? error.message : "Error desconocido"
+      });
+    }
+  });
+
+  // DocuSeal webhook handler
+  app.post("/api/webhooks/docuseal", async (req: Request, res: Response) => {
+    try {
+      const signature = req.headers["x-docuseal-signature"] as string;
+      const payload = JSON.stringify(req.body);
+
+      // Verify webhook signature
+      if (!verifyWebhookSignature(payload, signature)) {
+        console.warn("Invalid DocuSeal webhook signature");
+        return res.status(401).json({ error: "Invalid signature" });
+      }
+
+      const { event, data } = req.body;
+
+      console.log(`📝 DocuSeal webhook received: ${event}`, data);
+
+      // Handle submission completed event
+      if (event === "submission.completed" || event === "form.completed") {
+        const submissionId = data.id || data.submission_id;
+        const meetingId = data.metadata?.meeting_id;
+
+        if (!meetingId) {
+          console.warn("DocuSeal webhook missing meeting_id in metadata");
+          return res.json({ received: true });
+        }
+
+        // Update meeting as signed
+        const meeting = await storage.getMeeting(meetingId);
+        if (meeting) {
+          await storage.updateMeeting(meetingId, {
+            signatureStatus: "signed",
+            signedAt: new Date(),
+          });
+
+          console.log(`✅ Meeting ${meetingId} marked as signed`);
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Error processing DocuSeal webhook:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
     }
   });
 

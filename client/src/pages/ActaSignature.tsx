@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import PageHeader from "@/components/PageHeader";
 import type { Meeting } from "@shared/schema";
+import posthog from "posthog-js";
 
 export default function ActaSignature() {
   const [, navigate] = useLocation();
@@ -48,10 +49,15 @@ export default function ActaSignature() {
     onSuccess: (data) => {
       // Set the embed URL to show DocuSeal iframe
       setDocusealEmbedUrl(data.embedUrl);
-      
+
       toast({
         title: "¡Solicitud de firma creada!",
         description: "Ahora pueden firmar en DocuSeal",
+      });
+      posthog.capture('minute_signed', {
+        meeting_id: actaId,
+        building_name: meeting?.buildingName,
+        method: 'docuseal',
       });
     },
     onError: (error) => {
@@ -294,9 +300,9 @@ export default function ActaSignature() {
                   <Button
                     onClick={handleSignNow}
                     disabled={
-                      !presidentName.trim() || 
-                      !presidentEmail.trim() || 
-                      !secretaryName.trim() || 
+                      !presidentName.trim() ||
+                      !presidentEmail.trim() ||
+                      !secretaryName.trim() ||
                       !secretaryEmail.trim() ||
                       requestSignatureMutation.isPending
                     }

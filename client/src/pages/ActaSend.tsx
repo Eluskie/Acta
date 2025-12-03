@@ -13,6 +13,7 @@ import EmailRecipients, { type Recipient } from "@/components/EmailRecipients";
 import PageHeader from "@/components/PageHeader";
 import SignatureModal from "@/components/SignatureModal";
 import type { Meeting, EmailRecipient } from "@shared/schema";
+import posthog from "posthog-js";
 
 export default function ActaSend() {
   const [, navigate] = useLocation();
@@ -140,8 +141,17 @@ export default function ActaSend() {
         title: "Acta enviada",
         description: "El acta ha sido enviada correctamente a todos los destinatarios",
       });
+      posthog.capture('acta_shared', {
+        meeting_id: actaId,
+        recipient_count: recipients.length,
+      });
     },
     onError: (error) => {
+      posthog.capture('email_send_failed', {
+        meeting_id: actaId,
+        recipient_count: recipients.length,
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      });
       toast({
         title: "Error enviando acta",
         description: error instanceof Error ? error.message : "No se pudo enviar el acta",
@@ -175,6 +185,11 @@ export default function ActaSend() {
 
       await apiRequest("PATCH", `/api/meetings/${actaId}`, {
         recipients: formattedRecipients,
+      });
+
+      posthog.capture('draft_saved', {
+        meeting_id: actaId,
+        recipient_count: recipients.length,
       });
 
       toast({
@@ -217,6 +232,10 @@ export default function ActaSend() {
   };
 
   const handleOpenSignatureModal = (type: "president" | "secretary") => {
+    posthog.capture('signature_modal_opened', {
+      meeting_id: actaId,
+      signer_role: type,
+    });
     setCurrentSigner(type);
     setSignatureModalOpen(true);
   };
@@ -228,6 +247,12 @@ export default function ActaSend() {
       signature,
       name,
       type: currentSigner,
+    });
+
+    posthog.capture('signature_added', {
+      meeting_id: actaId,
+      signer_role: currentSigner,
+      signer_name: name,
     });
   };
 
@@ -258,8 +283,18 @@ export default function ActaSend() {
       document.body.removeChild(link);
 
       setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      posthog.capture('pdf_downloaded', {
+        meeting_id: actaId,
+        building_name: meeting.buildingName,
+        file_size_bytes: blob.size,
+      });
     } catch (error) {
       console.error("Error downloading PDF:", error);
+      posthog.capture('pdf_download_failed', {
+        meeting_id: actaId,
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      });
       toast({
         title: "Error",
         description: "No se pudo descargar el PDF",
@@ -398,8 +433,8 @@ export default function ActaSend() {
                   <FileSignature className="w-4 h-4 text-muted-foreground" />
                   <span className="font-semibold text-sm">Firmas</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${(meeting?.presidentSignature && meeting?.secretarySignature)
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                     }`}>
                     {[meeting?.presidentSignature, meeting?.secretarySignature].filter(Boolean).length}/2
                   </span>

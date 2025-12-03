@@ -7,6 +7,7 @@ import RecordingScreen from "@/components/RecordingScreen";
 import ProcessingScreen from "@/components/ProcessingScreen";
 import NewMeetingDialog from "@/components/NewMeetingDialog";
 import type { Meeting } from "@shared/schema";
+import posthog from "posthog-js";
 
 type FlowStep = "setup" | "recording" | "processing";
 
@@ -60,10 +61,18 @@ export default function ActaNew() {
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/meetings", meeting.id] });
       // Navigate to the acta view page
+      posthog.capture('acta_generated_success', {
+        meeting_id: meeting.id,
+        building_name: meeting.buildingName,
+      });
       navigate(`/acta/${meeting.id}`);
     },
     onError: (error) => {
       console.error("Transcription error:", error);
+      posthog.capture('transcription_failed', {
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        meeting_id: meetingData?.id,
+      });
       toast({
         title: "Error de transcripción",
         description: error instanceof Error ? error.message : "No se pudo procesar el audio",
@@ -76,6 +85,11 @@ export default function ActaNew() {
   const handleStartRecording = async (data: { buildingName: string; attendeesCount: number }) => {
     try {
       const meeting = await createMeetingMutation.mutateAsync(data);
+      posthog.capture('acta_created', {
+        meeting_id: meeting.id,
+        building_name: data.buildingName,
+        attendees_count: data.attendeesCount,
+      });
       setMeetingData({ ...data, id: meeting.id });
       setStep("recording");
     } catch (error) {

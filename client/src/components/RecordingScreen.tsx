@@ -4,6 +4,7 @@ import { Pause, Square, Play, Users, Building2, AlertCircle } from "lucide-react
 import AudioWaveform from "./AudioWaveform";
 import { cn } from "@/lib/utils";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { posthog } from "@/lib/posthog";
 
 interface RecordingScreenProps {
   buildingName: string;
@@ -37,6 +38,10 @@ export default function RecordingScreen({
     if (!hasStartedRef.current) {
       hasStartedRef.current = true;
       startRecording();
+      posthog.capture('recording_started', {
+        building_name: buildingName,
+        attendees_count: attendeesCount,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount
@@ -49,14 +54,20 @@ export default function RecordingScreen({
 
   const handlePauseResume = useCallback(() => {
     if (isPaused) {
+      posthog.capture('recording_resumed');
       resumeRecording();
     } else {
+      posthog.capture('recording_paused');
       pauseRecording();
     }
   }, [isPaused, pauseRecording, resumeRecording]);
 
   const handleStop = useCallback(async () => {
     const audioBlob = await stopRecording();
+    posthog.capture('recording_stopped', {
+      duration_seconds: duration,
+      audio_size_bytes: audioBlob?.size || 0,
+    });
     onStop?.(duration, audioBlob);
   }, [duration, stopRecording, onStop]);
 

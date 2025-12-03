@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(cat:*)",
-      "Bash(.gitignore.buildings <<'EOF'\n# Building management feature (work in progress)\nclient/src/pages/BuildingsPage.tsx\nclient/src/pages/BuildingDetailPage.tsx\nclient/src/components/BuildingCard.tsx\nclient/src/lib/mockBuildings.ts\nEOF)"
+      "Bash(.gitignore.buildings <<'EOF'\n# Building management feature (work in progress)\nclient/src/pages/BuildingsPage.tsx\nclient/src/pages/BuildingDetailPage.tsx\nclient/src/components/BuildingCard.tsx\nclient/src/lib/mockBuildings.ts\nEOF)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

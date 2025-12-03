@@ -1,5 +1,7 @@
 import { SignUp } from "@/lib/clerk";
 import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { posthog } from "@/lib/posthog";
 
 /**
  * SignUpPage - Branded registration page
@@ -11,6 +13,9 @@ import { motion } from "framer-motion";
  * - Responsive mobile design
  */
 export default function SignUpPage() {
+  useEffect(() => {
+    posthog.capture('sign_up_page_viewed');
+  }, []);
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left Panel - Animated Brand (Hidden on mobile) */}

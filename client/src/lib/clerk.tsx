@@ -1,7 +1,9 @@
 import { ClerkProvider, useAuth, useUser, SignIn, SignUp, UserButton } from "@clerk/clerk-react";
 import { useLocation } from "wouter";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { useUserSync } from "@/hooks/useUserSync";
+import { posthog } from "@/lib/posthog";
 
 // Get the publishable key from environment
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -45,10 +47,23 @@ export function ClerkProviderWithRouting({ children }: { children: ReactNode }) 
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
   const [, navigate] = useLocation();
 
   // Sync user to database when authenticated
   useUserSync();
+
+  // Identify user in PostHog when authenticated
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      posthog.identify(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        name: user.fullName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
+    }
+  }, [isLoaded, isSignedIn, user]);
 
   // If Clerk is not configured, allow access (development mode)
   if (!CLERK_PUBLISHABLE_KEY) {

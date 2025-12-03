@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import type { Meeting } from "@shared/schema";
 import type { ActaStatus } from "@/components/StatusBadge";
 import { useCurrentUser } from "@/lib/clerk";
+import { posthog } from "@/lib/posthog";
 
 /**
  * Dashboard - Main landing page
@@ -53,6 +54,26 @@ export default function Dashboard() {
   const filteredMeetings = formattedMeetings.filter((m) =>
     m.buildingName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Track dashboard view
+  useEffect(() => {
+    posthog.capture('dashboard_viewed', {
+      total_actas: meetings.length,
+    });
+  }, [meetings.length]);
+
+  // Track search usage
+  useEffect(() => {
+    if (searchQuery) {
+      const timer = setTimeout(() => {
+        posthog.capture('acta_searched', {
+          search_query: searchQuery,
+          results_count: filteredMeetings.length,
+        });
+      }, 500); // Debounce search tracking
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, filteredMeetings.length]);
 
   const isEmpty = meetings.length === 0;
 
@@ -159,7 +180,13 @@ export default function Dashboard() {
                     >
                       <MeetingCard
                         meeting={meeting}
-                        onClick={() => navigate(`/acta/${meeting.id}`)}
+                        onClick={() => {
+                          posthog.capture('acta_opened', {
+                            meeting_id: meeting.id,
+                            from: 'dashboard',
+                          });
+                          navigate(`/acta/${meeting.id}`);
+                        }}
                       />
                     </motion.div>
                   ))}

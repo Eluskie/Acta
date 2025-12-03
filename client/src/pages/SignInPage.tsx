@@ -1,5 +1,7 @@
 import { SignIn } from "@/lib/clerk";
 import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { posthog } from "@/lib/posthog";
 
 /**
  * SignInPage - Branded authentication page
@@ -11,6 +13,9 @@ import { motion } from "framer-motion";
  * - Responsive mobile design
  */
 export default function SignInPage() {
+  useEffect(() => {
+    posthog.capture('sign_in_page_viewed');
+  }, []);
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left Panel - Animated Brand (Hidden on mobile) */}
@@ -98,7 +103,7 @@ export default function SignInPage() {
           </div>
 
           {/* Welcome Text */}
-          <div className="text-center mb-10">
+          <div className="text-left mb-10">
             <h2 className="text-3xl font-bold text-foreground mb-3">
               Bienvenido de nuevo
             </h2>

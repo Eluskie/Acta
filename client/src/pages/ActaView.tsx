@@ -11,6 +11,7 @@ import PageHeader from "@/components/PageHeader";
 import SignatureModal from "@/components/SignatureModal";
 import type { Meeting } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { posthog } from "@/lib/posthog";
 
 export default function ActaView() {
   const [, navigate] = useLocation();
@@ -23,6 +24,7 @@ export default function ActaView() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const contentEditableRef = useRef<HTMLDivElement>(null);
+  const editStartTimeRef = useRef<number | null>(null);
 
   // Signature modal state
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
@@ -38,6 +40,17 @@ export default function ActaView() {
     },
     enabled: !!actaId,
   });
+
+  // Track page view
+  useEffect(() => {
+    if (meeting) {
+      posthog.capture('acta_viewed', {
+        meeting_id: actaId,
+        building_name: meeting.buildingName,
+        has_signatures: !!(meeting.presidentSignature && meeting.secretarySignature),
+      });
+    }
+  }, [meeting, actaId]);
 
   // Save signature mutation
   const saveSignatureMutation = useMutation({
@@ -255,6 +268,10 @@ export default function ActaView() {
 
   // Signature handlers
   const handleOpenSignatureModal = (type: "president" | "secretary") => {
+    posthog.capture('signature_modal_opened', {
+      meeting_id: actaId,
+      signer_role: type,
+    });
     setCurrentSigner(type);
     setSignatureModalOpen(true);
   };
@@ -266,6 +283,12 @@ export default function ActaView() {
       signature,
       name,
       type: currentSigner,
+    });
+
+    posthog.capture('signature_added', {
+      meeting_id: actaId,
+      signer_role: currentSigner,
+      signer_name: name,
     });
   };
 
@@ -349,12 +372,27 @@ export default function ActaView() {
                     setIsEditing(false);
                     const newContent = e.currentTarget.innerHTML || '';
                     setActaContent(newContent);
+                    // Track edit duration
+                    if (editStartTimeRef.current) {
+                      const editDuration = (Date.now() - editStartTimeRef.current) / 1000;
+                      posthog.capture('acta_edited', {
+                        meeting_id: actaId,
+                        edit_duration_seconds: Math.round(editDuration),
+                        content_length: newContent.length,
+                      });
+                      editStartTimeRef.current = null;
+                    }
                     // Save to backend when editing finishes
                     if (newContent && newContent !== actaContent) {
                       await saveActaContent(newContent);
                     }
                   }}
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    if (!isEditing) {
+                      editStartTimeRef.current = Date.now();
+                    }
+                    setIsEditing(true);
+                  }}
                   className="my-8 text-foreground leading-relaxed text-justify"
                   style={{
                     outline: isEditing ? '2px solid hsl(var(--primary))' : 'none',

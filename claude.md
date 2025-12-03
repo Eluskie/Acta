@@ -47,6 +47,97 @@ Acta is a full-stack web application for managing community meeting minutes (act
 └── uploads/             # Audio file storage (not in git)
 ```
 
+## Typography Guidelines
+
+### Font System
+
+Acta uses a **two-font system** to create visual hierarchy and improve usability:
+
+1. **Tiempos Text** (Serif) - Display/Accent font
+2. **Inter** (Sans-serif) - UI/System font
+
+### The Golden Rule: Content vs. Interface
+
+**Use Tiempos (Accent) for:**
+- ✅ **Page Content Headers** - The main subject matter users came to read
+- ✅ **Editorial/Marketing Content** - Messages with personality
+- ✅ **Document Content** - Printed or PDF material
+
+**Use Sans-serif (System) for:**
+- ✅ **UI Chrome** - Navigation, toolbars, sticky headers
+- ✅ **Data Display** - Tables, lists, cards, metrics
+- ✅ **Interactive Elements** - Buttons, forms, inputs, labels
+
+### Detailed Decision Matrix
+
+| Element Type | Font | Reasoning |
+|--------------|------|-----------|
+| **Page greeting** ("Buenos días, Gerard") | **Tiempos** | Personal content - creates warmth |
+| **Content section headers** ("Actas Recientes") | **Tiempos** | Organizes page content - editorial |
+| **Sticky page headers** ("Enviar Acta Oficial") | **Sans-serif** | UI chrome - needs to be compact |
+| **Card titles** (Meeting names in list) | **Sans-serif** | Data display - scannable |
+| **Form labels** ("Destinatarios", "Asunto") | **Sans-serif** | Functional UI - clarity over style |
+| **Button text** | **Sans-serif** | Interactive element - legibility |
+| **Empty state messages** | **Tiempos** | Editorial content - engaging |
+| **Modal titles** (functional) | **Sans-serif** | UI element - not content |
+| **Modal titles** (content-focused) | **Tiempos** | If modal is content, not UI |
+| **Stats/Numbers** | **Sans-serif** | Data display - precision |
+| **Tooltips/Hints** | **Sans-serif** | UI helper - quick scanning |
+
+### Implementation
+
+All typography is controlled globally via `client/src/index.css`:
+
+```css
+/* Headers use Tiempos by default */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif); /* Tiempos Text */
+}
+
+/* Override with font-sans class when needed */
+.font-sans {
+  font-family: var(--font-sans); /* Inter */
+}
+```
+
+### When in Doubt
+
+Ask yourself: **"Is this content or interface?"**
+
+- **Content** = What the user came to read/consume → **Tiempos**
+- **Interface** = Tools to navigate/interact with content → **Sans-serif**
+
+### Examples from Acta
+
+```tsx
+// ✅ CORRECT - Page content header
+<h1>Buenos días, Gerard</h1>  // Uses Tiempos (default)
+
+// ✅ CORRECT - UI sticky header
+<h1 className="font-sans">Enviar Acta Oficial</h1>  // Override to sans-serif
+
+// ✅ CORRECT - Section header in content
+<h2>Actas Recientes</h2>  // Uses Tiempos (default)
+
+// ✅ CORRECT - Card title (data display)
+<h3 className="font-sans">{meeting.buildingName}</h3>  // Override to sans-serif
+
+// ✅ CORRECT - Form label
+<Label className="font-sans">Destinatarios</Label>  // Explicitly sans-serif
+```
+
+### Typography Scale
+
+| Element | Size (Mobile) | Size (Desktop) | Weight | Font |
+|---------|---------------|----------------|--------|------|
+| h1 | 36px (2.25rem) | 48px (3rem) | 400 | Tiempos |
+| h2 | 18px | 18px | 500 | Tiempos |
+| h3 | 24px (1.5rem) | 30px (1.875rem) | 400 | Tiempos |
+| h4 | 20px (1.25rem) | 24px (1.5rem) | 400 | Tiempos |
+| Body | 16px (1rem) | 16px (1rem) | 400 | Inter |
+| Small | 14px (0.875rem) | 14px (0.875rem) | 400 | Inter |
+
+
 ## Key Features
 
 ### 1. Authentication (Clerk)

@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronDown, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronDown, Loader2, Check, Edit, Plus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 import TranscriptEditor, { type TranscriptParagraph } from "@/components/TranscriptEditor";
 import AudioPlayer from "@/components/AudioPlayer";
 import PageHeader from "@/components/PageHeader";
+import SignatureModal from "@/components/SignatureModal";
 import type { Meeting } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -14,12 +16,17 @@ export default function ActaView() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/acta/:id");
   const actaId = params?.id;
+  const { toast } = useToast();
 
   const [paragraphs, setParagraphs] = useState<TranscriptParagraph[]>([]);
   const [actaContent, setActaContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const contentEditableRef = useRef<HTMLDivElement>(null);
+
+  // Signature modal state
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [currentSigner, setCurrentSigner] = useState<"president" | "secretary" | null>(null);
 
   // Fetch meeting data
   const { data: meeting, isLoading, error } = useQuery<Meeting>({
@@ -30,6 +37,51 @@ export default function ActaView() {
       return res.json();
     },
     enabled: !!actaId,
+  });
+
+  // Save signature mutation
+  const saveSignatureMutation = useMutation({
+    mutationFn: async ({ signature, name, type }: { signature: string; name: string; type: "president" | "secretary" }) => {
+      const updateData: any = {};
+      if (type === "president") {
+        updateData.presidentSignature = signature;
+        updateData.presidentName = name;
+      } else {
+        updateData.secretarySignature = signature;
+        updateData.secretaryName = name;
+      }
+
+      // Check if both signatures are now present
+      const currentMeeting = meeting;
+      if (currentMeeting) {
+        const hasPresident = type === "president" || currentMeeting.presidentSignature;
+        const hasSecretary = type === "secretary" || currentMeeting.secretarySignature;
+
+        if (hasPresident && hasSecretary) {
+          updateData.signatureStatus = "signed";
+          updateData.signedAt = new Date();
+        }
+      }
+
+      return apiRequest("PATCH", `/api/meetings/${actaId}`, updateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings", actaId] });
+      setSignatureModalOpen(false);
+      setCurrentSigner(null);
+      toast({
+        title: "Firma guardada",
+        description: "La firma se ha guardado correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la firma. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+      console.error("Error saving signature:", error);
+    },
   });
 
   useEffect(() => {
@@ -179,18 +231,18 @@ export default function ActaView() {
   // Save acta content to backend
   const saveActaContent = async (content: string) => {
     if (!actaId) return;
-    
+
     // Convert HTML to plain text if needed
-    const plainTextContent = content.startsWith('<') 
-      ? htmlToPlainText(content) 
+    const plainTextContent = content.startsWith('<')
+      ? htmlToPlainText(content)
       : content;
-    
+
     try {
       setIsSaving(true);
       await apiRequest("PATCH", `/api/meetings/${actaId}`, {
         actaContent: plainTextContent,
       });
-      
+
       // Invalidate query to refresh data
       await queryClient.invalidateQueries({ queryKey: ["/api/meetings", actaId] });
     } catch (error) {
@@ -199,6 +251,22 @@ export default function ActaView() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Signature handlers
+  const handleOpenSignatureModal = (type: "president" | "secretary") => {
+    setCurrentSigner(type);
+    setSignatureModalOpen(true);
+  };
+
+  const handleSaveSignature = async (signature: string, name: string) => {
+    if (!currentSigner) return;
+
+    await saveSignatureMutation.mutateAsync({
+      signature,
+      name,
+      type: currentSigner,
+    });
   };
 
   return (
@@ -301,20 +369,103 @@ export default function ActaView() {
                   }}
                 />
 
-                {/* Signatures */}
+                {/* Signatures - Interactive */}
                 <div className="mt-32 pt-16 border-t-2 border-border">
                   <div className="grid grid-cols-2 gap-16">
+                    {/* President Signature */}
                     <div className="text-center">
-                      <div className="h-20 border-b-2 border-border mb-3"></div>
-                      <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
-                        FIRMA PRESIDENTE
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Presidente</span>
+                        {meeting?.presidentSignature && (
+                          <Check className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+
+                      {meeting?.presidentSignature ? (
+                        <>
+                          <img
+                            src={meeting.presidentSignature}
+                            alt="Firma Presidente"
+                            className="w-full h-20 object-contain border-b-2 border-border mb-3"
+                          />
+                          <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
+                            {meeting.presidentName || "FIRMA PRESIDENTE"}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenSignatureModal("president")}
+                            className="w-full mt-2 h-8 text-xs"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Editar firma
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="h-20 border-b-2 border-border mb-3"></div>
+                          <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
+                            FIRMA PRESIDENTE
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenSignatureModal("president")}
+                            className="w-full mt-2"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Añadir firma
+                          </Button>
+                        </>
+                      )}
                     </div>
+
+                    {/* Secretary Signature */}
                     <div className="text-center">
-                      <div className="h-20 border-b-2 border-border mb-3"></div>
-                      <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
-                        FIRMA SECRETARIA
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Secretaria</span>
+                        {meeting?.secretarySignature && (
+                          <Check className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+
+                      {meeting?.secretarySignature ? (
+                        <>
+                          <img
+                            src={meeting.secretarySignature}
+                            alt="Firma Secretaria"
+                            className="w-full h-20 object-contain border-b-2 border-border mb-3"
+                          />
+                          <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
+                            {meeting.secretaryName || "FIRMA SECRETARIA"}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenSignatureModal("secretary")}
+                            className="w-full mt-2 h-8 text-xs"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Editar firma
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="h-20 border-b-2 border-border mb-3"></div>
+                          <p className="text-xs uppercase font-bold text-muted-foreground tracking-wide">
+                            FIRMA SECRETARIA
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenSignatureModal("secretary")}
+                            className="w-full mt-2"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Añadir firma
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -375,6 +526,21 @@ export default function ActaView() {
           </div>
         </details>
       </div>
+
+      {/* Signature Modal */}
+      <SignatureModal
+        open={signatureModalOpen}
+        onOpenChange={setSignatureModalOpen}
+        title={currentSigner === "president" ? "Firma del Presidente" : "Firma de la Secretaria"}
+        description="Dibuja tu firma con el ratón o con el dedo en pantallas táctiles"
+        defaultName={
+          currentSigner === "president"
+            ? meeting?.presidentName || "Presidente"
+            : meeting?.secretaryName || "Secretaria"
+        }
+        onSave={handleSaveSignature}
+        isSaving={saveSignatureMutation.isPending}
+      />
     </div>
   );
 }

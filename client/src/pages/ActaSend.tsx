@@ -647,12 +647,12 @@ export default function ActaSend() {
               </div>
 
               {/* Document Info */}
-              <div className="pt-4 border-t border-border/50">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <FileText className="w-5 h-5" />
-                  <div>
-                    <p className="font-medium text-foreground text-sm">Acta_{buildingName}.pdf</p>
-                    <p className="text-xs">
+              <div className="pt-6 mt-4 border-t border-border/50">
+                <div className="flex items-center gap-4 text-muted-foreground">
+                  <FileText className="w-6 h-6 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground text-sm mb-1.5">Acta_{buildingName}.pdf</p>
+                    <p className="text-xs text-muted-foreground">
                       {meeting.signatureStatus === "signed" ? "Con firmas" : "Sin firmar"}
                     </p>
                   </div>

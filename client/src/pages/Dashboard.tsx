@@ -69,20 +69,20 @@ export default function Dashboard() {
   const greeting = hour < 12 ? "Buenos días" : hour < 20 ? "Buenas tardes" : "Buenas noches";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-background">{/* Warmer neutral background */}
       <Header onSearch={setSearchQuery} />
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24">
         {/* Hero Section with Stats */}
-        <div className="mb-8 sm:mb-12">
-          <p className="text-sm text-muted-foreground mb-1">{dateString}</p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 tracking-tight">
+        <div className="mb-10 sm:mb-14">
+          <p className="text-sm text-muted-foreground mb-3">{dateString}</p>
+          <h1 className="mb-6">
             {greeting}{currentUser?.firstName ? `, ${currentUser.firstName}` : ''}
           </h1>
-          
+
           {/* Quick Stats - Only show if there are meetings */}
           {totalActas > 0 && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -97,7 +97,7 @@ export default function Dashboard() {
                   <span className="text-sm text-muted-foreground ml-1">actas</span>
                 </div>
               </div>
-              
+
               {draftActas > 0 && (
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
@@ -115,8 +115,8 @@ export default function Dashboard() {
 
         {/* Recent Meetings Section */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground tracking-tight">
+          <div className="flex items-center justify-between mb-6">
+            <h2>
               Actas Recientes
             </h2>
             <Button
@@ -144,7 +144,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               ) : (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
@@ -171,7 +171,7 @@ export default function Dashboard() {
       </main>
 
       {/* Mobile Floating Action Button */}
-      <motion.div 
+      <motion.div
         className="fixed bottom-6 right-6 sm:hidden z-50"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}

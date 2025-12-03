@@ -184,9 +184,9 @@ function renderFormattedText(
 ): number {
   const segments = parseMarkdownToSegments(content);
   let y = startY;
-  const lineHeight = 6;
-  const headerLineHeight = 8;
-  const paragraphSpacing = 4;
+  const lineHeight = 7;           // Increased from 6 for better readability
+  const headerLineHeight = 10;     // Increased from 8 for better header prominence
+  const paragraphSpacing = 8;      // Increased from 4 for clear paragraph separation
   
   for (const lineSegments of segments) {
     // Check for page break
@@ -205,12 +205,12 @@ function renderFormattedText(
     
     // Handle headers
     if (firstSegment.isHeader) {
-      y += 4; // Extra spacing before header
+      y += 8; // Increased spacing before header (was 4)
       const fontSize = firstSegment.headerLevel === 1 ? 14 : firstSegment.headerLevel === 2 ? 12 : 11;
       doc.setFontSize(fontSize);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(26, 26, 26);
-      
+
       const headerLines = doc.splitTextToSize(firstSegment.text, maxWidth);
       for (const headerLine of headerLines) {
         if (y > pageHeight - 80) {
@@ -220,7 +220,7 @@ function renderFormattedText(
         doc.text(headerLine, startX, y);
         y += headerLineHeight;
       }
-      y += 2; // Extra spacing after header
+      y += 6; // Increased spacing after header (was 2)
       continue;
     }
     
@@ -843,8 +843,8 @@ export async function registerRoutes(
           day: "numeric",
         });
 
-        const prompt = `Eres un secretario profesional de comunidades de vecinos en España.
-Genera un acta oficial de reunión basada en la siguiente transcripción.
+        const prompt = `Eres un secretario profesional de comunidades de vecinos en España, experto en la Ley de Propiedad Horizontal (LPH).
+Genera un acta oficial de reunión que cumpla con el artículo 19.2 de la LPH, basada en la siguiente transcripción.
 
 INFORMACIÓN DE LA REUNIÓN:
 - Comunidad: ${updatedMeeting!.buildingName}
@@ -854,14 +854,54 @@ INFORMACIÓN DE LA REUNIÓN:
 TRANSCRIPCIÓN:
 ${transcriptText}
 
-Por favor, genera un acta formal en español con el siguiente formato:
-1. Encabezado con lugar, fecha y hora
-2. Lista de asistentes (si se mencionan)
-3. Orden del día (puntos tratados)
-4. Desarrollo de la sesión con los acuerdos alcanzados
-5. Cierre con hora de finalización
+INSTRUCCIONES:
+Genera un acta formal en español que incluya TODAS las siguientes secciones (aunque no tengas toda la información completa):
 
-El acta debe ser profesional, clara y respetar el formato oficial español para actas de comunidades de propietarios.`;
+## 1. DATOS DE LA REUNIÓN
+- Lugar de celebración: [Extraer de la transcripción o dejar "Por determinar"]
+- Fecha y hora: ${formattedDate}
+- Carácter: [Ordinaria/Extraordinaria - inferir del contexto]
+- Convocatoria: [Primera/Segunda convocatoria - si no se menciona, poner "Primera"]
+- Convocada por: [Extraer nombre o poner "El Presidente"]
+
+## 2. ASISTENTES
+Lista los asistentes mencionados en la transcripción. Si no se mencionan nombres específicos, indicar:
+"Asistentes: ${updatedMeeting!.attendeesCount} propietarios representando [X]% de las cuotas de participación [si se menciona en la transcripción]."
+
+Si se identifican roles (presidente, secretario, administrador), especificarlos.
+
+## 3. ORDEN DEL DÍA
+Lista los temas tratados en orden. Cada punto debe ser claro y numerado:
+1. [Tema 1]
+2. [Tema 2]
+...
+
+## 4. DESARROLLO DE LA SESIÓN
+Para cada punto del orden del día, describe:
+- Qué se discutió
+- Propuestas presentadas
+- Acuerdos alcanzados
+
+Incluir para cada acuerdo (si se menciona en transcripción):
+- Votos a favor
+- Votos en contra
+- Abstenciones
+- Resultado (APROBADO/RECHAZADO)
+
+Si no hay información de votación, indicar: "Acuerdo aprobado por unanimidad de los presentes" o "Se requiere completar información de votación".
+
+## 5. CIERRE
+Hora de finalización (extraer de la transcripción o indicar "Por determinar").
+Indicar que el acta será firmada por el Presidente y el Secretario.
+
+FORMATO:
+- Usa markdown para headers (## para secciones principales)
+- Deja líneas en blanco entre secciones para mejorar legibilidad
+- Usa **negritas** para términos importantes (APROBADO, nombres de roles, etc.)
+- Escribe en tono formal y objetivo, sin opiniones
+- Si falta información crítica, indícala claramente con [Por completar] en lugar de inventar datos
+
+IMPORTANTE: Genera un acta estructurada y legible, aunque falte información. Es mejor dejar campos por completar que inventar datos.`;
 
         console.log(`[DEBUG] Calling OpenAI API for acta generation...`);
         const actaResponse = await openai.chat.completions.create({
@@ -941,8 +981,8 @@ El acta debe ser profesional, clara y respetar el formato oficial español para 
         day: "numeric",
       });
 
-      const prompt = `Eres un secretario profesional de comunidades de vecinos en España. 
-Genera un acta oficial de reunión basada en la siguiente transcripción.
+      const prompt = `Eres un secretario profesional de comunidades de vecinos en España, experto en la Ley de Propiedad Horizontal (LPH).
+Genera un acta oficial de reunión que cumpla con el artículo 19.2 de la LPH, basada en la siguiente transcripción.
 
 INFORMACIÓN DE LA REUNIÓN:
 - Comunidad: ${meeting.buildingName}
@@ -952,14 +992,54 @@ INFORMACIÓN DE LA REUNIÓN:
 TRANSCRIPCIÓN:
 ${transcriptText}
 
-Por favor, genera un acta formal en español con el siguiente formato:
-1. Encabezado con lugar, fecha y hora
-2. Lista de asistentes (si se mencionan)
-3. Orden del día (puntos tratados)
-4. Desarrollo de la sesión con los acuerdos alcanzados
-5. Cierre con hora de finalización
+INSTRUCCIONES:
+Genera un acta formal en español que incluya TODAS las siguientes secciones (aunque no tengas toda la información completa):
 
-El acta debe ser profesional, clara y respetar el formato oficial español para actas de comunidades de propietarios.`;
+## 1. DATOS DE LA REUNIÓN
+- Lugar de celebración: [Extraer de la transcripción o dejar "Por determinar"]
+- Fecha y hora: ${formattedDate}
+- Carácter: [Ordinaria/Extraordinaria - inferir del contexto]
+- Convocatoria: [Primera/Segunda convocatoria - si no se menciona, poner "Primera"]
+- Convocada por: [Extraer nombre o poner "El Presidente"]
+
+## 2. ASISTENTES
+Lista los asistentes mencionados en la transcripción. Si no se mencionan nombres específicos, indicar:
+"Asistentes: ${meeting.attendeesCount} propietarios representando [X]% de las cuotas de participación [si se menciona en la transcripción]."
+
+Si se identifican roles (presidente, secretario, administrador), especificarlos.
+
+## 3. ORDEN DEL DÍA
+Lista los temas tratados en orden. Cada punto debe ser claro y numerado:
+1. [Tema 1]
+2. [Tema 2]
+...
+
+## 4. DESARROLLO DE LA SESIÓN
+Para cada punto del orden del día, describe:
+- Qué se discutió
+- Propuestas presentadas
+- Acuerdos alcanzados
+
+Incluir para cada acuerdo (si se menciona en transcripción):
+- Votos a favor
+- Votos en contra
+- Abstenciones
+- Resultado (APROBADO/RECHAZADO)
+
+Si no hay información de votación, indicar: "Acuerdo aprobado por unanimidad de los presentes" o "Se requiere completar información de votación".
+
+## 5. CIERRE
+Hora de finalización (extraer de la transcripción o indicar "Por determinar").
+Indicar que el acta será firmada por el Presidente y el Secretario.
+
+FORMATO:
+- Usa markdown para headers (## para secciones principales)
+- Deja líneas en blanco entre secciones para mejorar legibilidad
+- Usa **negritas** para términos importantes (APROBADO, nombres de roles, etc.)
+- Escribe en tono formal y objetivo, sin opiniones
+- Si falta información crítica, indícala claramente con [Por completar] en lugar de inventar datos
+
+IMPORTANTE: Genera un acta estructurada y legible, aunque falte información. Es mejor dejar campos por completar que inventar datos.`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-5",

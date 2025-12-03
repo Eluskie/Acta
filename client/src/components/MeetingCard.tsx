@@ -36,7 +36,7 @@ export default function MeetingCard({ meeting, onClick }: MeetingCardProps) {
 
   return (
     <Card
-      className="group hover:shadow-sm transition-all duration-200 cursor-pointer border-border/40 bg-card/50 hover:bg-card hover:border-border/80"
+      className="group bg-white border border-card-border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
       onClick={onClick}
       data-testid={`card-meeting-${meeting.id}`}
     >

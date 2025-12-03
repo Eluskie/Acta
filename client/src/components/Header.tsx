@@ -22,12 +22,7 @@ export default function Header({ onSearch }: HeaderProps) {
       <div className="flex items-center justify-between h-full px-4 max-w-[1600px] mx-auto">
         {/* Left: Logo */}
         <div className="flex items-center gap-4 w-[200px]">
-          <div className="font-semibold text-lg tracking-tight flex items-center gap-2">
-            <div className="w-6 h-6 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">A</span>
-            </div>
-            Acta
-          </div>
+          <img src="/actalogo.svg" alt="Acta" className="h-4 w-auto" />
         </div>
 
         {/* Center: Search */}

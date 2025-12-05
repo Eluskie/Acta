@@ -2,6 +2,7 @@ import { SignIn } from "@/lib/clerk";
 import { motion } from "framer-motion";
 import { useEffect } from "react";
 import { posthog } from "@/lib/posthog";
+import { MorphingVideoPlayer } from "@/components/ui/morphing-video-player";
 
 /**
  * SignInPage - Branded authentication page
@@ -76,17 +77,34 @@ export default function SignInPage() {
           <img src="/actalogo.svg" alt="Acta" className="h-6 w-auto" />
         </motion.div>
 
-        {/* Tagline - Bottom Left */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="absolute left-16 bottom-32 max-w-md z-10"
-        >
-          <h2 className="text-black text-4xl font-semibold leading-tight">
-            Tus actas -a partir de ahora- se escriben solas.
-          </h2>
-        </motion.div>
+
+        {/* Content Container - Video + Tagline */}
+        <div className="absolute inset-0 flex flex-col justify-center items-center p-12 pt-24 pb-16 z-10 gap-8">
+          {/* Video Demo - Center */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+            className="w-full flex justify-center"
+          >
+            <MorphingVideoPlayer
+              videoSrc="https://pub-c4c8846bea5840778c4bbface64b3f43.r2.dev/signin-demo.mp4"
+              className="w-full"
+            />
+          </motion.div>
+
+          {/* Tagline - Bottom */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="max-w-lg text-center"
+          >
+            <h2 className="text-black text-4xl font-medium leading-tight">
+              Tus actas -a partir de ahora- se escriben solas.
+            </h2>
+          </motion.div>
+        </div>
       </div>
 
       {/* Right Panel - Authentication Form */}
@@ -95,7 +113,7 @@ export default function SignInPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-md"
+          className="max-w-md"
         >
           {/* Mobile Logo (Only on mobile) */}
           <div className="lg:hidden flex items-center justify-center mb-8">
@@ -117,7 +135,7 @@ export default function SignInPage() {
             appearance={{
               elements: {
                 rootBox: "mx-auto w-full",
-                card: "shadow-xl border border-border/50 bg-card w-full rounded-2xl",
+                card: "mx-auto shadow-xl border border-border/50 bg-card w-full rounded-2xl",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
                 socialButtonsBlockButton:
@@ -146,4 +164,5 @@ export default function SignInPage() {
     </div>
   );
 }
+
 

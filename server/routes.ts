@@ -1356,5 +1356,109 @@ IMPORTANTE: Genera un acta estructurada y legible, aunque falte información. Es
     }
   });
 
+  // TEMPORARY: Regenerate last acta with new format — DELETE after use
+  app.post("/api/admin/regen-last", async (req: Request, res: Response) => {
+    const secret = req.headers["x-admin-secret"];
+    if (secret !== "regen-last-2024") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    try {
+      const allMeetings = await storage.getAllMeetings();
+      const withActa = allMeetings.filter((m: any) => m.actaContent && m.transcript && m.transcript.length > 0);
+      if (withActa.length === 0) {
+        return res.status(404).json({ error: "No meetings with acta and transcript found" });
+      }
+      withActa.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const meeting = withActa[0];
+
+      const transcriptText = meeting.transcript
+        .map((p: any) => `[${p.timestamp}] ${p.speaker ? `${p.speaker}: ` : ""}${p.text}`)
+        .join("\n");
+
+      const formattedDate = new Date(meeting.date).toLocaleDateString("es-ES", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric",
+      });
+
+      const prompt = `Eres un secretario profesional de comunidades de vecinos en España, experto en la Ley de Propiedad Horizontal (LPH).
+Genera un acta oficial de reunión que cumpla con el artículo 19.2 de la LPH, basada en la siguiente transcripción.
+
+INFORMACIÓN DE LA REUNIÓN:
+- Comunidad: ${meeting.buildingName}
+- Fecha: ${formattedDate}
+- Asistentes: ${meeting.attendeesCount} personas
+
+TRANSCRIPCIÓN:
+${transcriptText}
+
+INSTRUCCIONES:
+Genera un acta formal en español que incluya TODAS las siguientes secciones (aunque no tengas toda la información completa):
+
+## 1. DATOS DE LA REUNIÓN
+- Lugar de celebración: [Extraer de la transcripción o dejar "Por determinar"]
+- Fecha y hora: ${formattedDate}
+- Carácter: [Ordinaria/Extraordinaria - inferir del contexto]
+- Convocatoria: [Primera/Segunda convocatoria - si no se menciona, poner "Primera"]
+- Convocada por: [Extraer nombre o poner "El Presidente"]
+
+## 2. ASISTENTES
+Lista los asistentes mencionados en la transcripción. Si no se mencionan nombres específicos, indicar:
+"Asistentes: ${meeting.attendeesCount} propietarios representando [X]% de las cuotas de participación [si se menciona en la transcripción]."
+
+Si se identifican roles (presidente, secretario, administrador), especificarlos.
+
+## 3. ORDEN DEL DÍA
+Lista los temas tratados en orden. Cada punto debe ser claro y numerado:
+1. [Tema 1]
+2. [Tema 2]
+...
+
+## 4. DESARROLLO DE LA SESIÓN
+Para cada punto del orden del día, usa el siguiente formato de enumeración simple:
+
+1. [Título del punto]
+[Descripción breve en prosa de lo que se trató y acordó, sin sub-puntos ni bullets.]
+
+2. [Título del siguiente punto]
+[Descripción...]
+
+Y así sucesivamente para todos los puntos. No uses bullets ni sub-secciones dentro de cada punto. Si se alcanzó un acuerdo, menciónalo dentro del párrafo de forma natural (ej: "aprobado por unanimidad de los presentes").
+
+## 5. CIERRE
+Hora de finalización (extraer de la transcripción o indicar "Por determinar").
+Indicar que el acta será firmada por el Presidente y el Secretario.
+
+FORMATO:
+- Usa markdown para headers (## para secciones principales)
+- Deja líneas en blanco entre secciones para mejorar legibilidad
+- Usa **negritas** para términos importantes (APROBADO, nombres de roles, etc.)
+- Escribe en tono formal y objetivo, sin opiniones
+- Si falta información crítica, indícala claramente con [Por completar] en lugar de inventar datos
+
+IMPORTANTE: Genera un acta estructurada y legible, aunque falte información. Es mejor dejar campos por completar que inventar datos.`;
+
+      const aiResponse = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          { role: "system", content: "Eres un experto en redacción de actas oficiales de comunidades de vecinos en España." },
+          { role: "user", content: prompt }
+        ],
+        max_completion_tokens: 4096,
+      });
+
+      const newActaContent = aiResponse.choices[0].message.content || "";
+      await storage.updateMeeting(meeting.id, { actaContent: newActaContent });
+
+      res.json({
+        meetingId: meeting.id,
+        buildingName: meeting.buildingName,
+        date: meeting.date,
+        newActaContent,
+      });
+    } catch (error) {
+      console.error("Error in regen-last:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
   return httpServer;
 }

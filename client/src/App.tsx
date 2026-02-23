@@ -34,6 +34,12 @@ function App() {
                 <Dashboard />
               </ProtectedRoute>
             </Route>
+
+            <Route path="/home">
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            </Route>
             
             <Route path="/acta/new">
               <ProtectedRoute>

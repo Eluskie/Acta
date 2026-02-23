@@ -30,8 +30,10 @@ export function ClerkProviderWithRouting({ children }: { children: ReactNode }) 
   }
 
   return (
-    <ClerkProvider 
+    <ClerkProvider
       publishableKey={CLERK_PUBLISHABLE_KEY}
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
     >
       {children}
     </ClerkProvider>

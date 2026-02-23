@@ -877,18 +877,15 @@ Lista los temas tratados en orden. Cada punto debe ser claro y numerado:
 ...
 
 ## 4. DESARROLLO DE LA SESIÓN
-Para cada punto del orden del día, describe:
-- Qué se discutió
-- Propuestas presentadas
-- Acuerdos alcanzados
+Para cada punto del orden del día, usa el siguiente formato de enumeración simple:
 
-Incluir para cada acuerdo (si se menciona en transcripción):
-- Votos a favor
-- Votos en contra
-- Abstenciones
-- Resultado (APROBADO/RECHAZADO)
+1. [Título del punto]
+[Descripción breve en prosa de lo que se trató y acordó, sin sub-puntos ni bullets.]
 
-Si no hay información de votación, indicar: "Acuerdo aprobado por unanimidad de los presentes" o "Se requiere completar información de votación".
+2. [Título del siguiente punto]
+[Descripción...]
+
+Y así sucesivamente para todos los puntos. No uses bullets ni sub-secciones dentro de cada punto. Si se alcanzó un acuerdo, menciónalo dentro del párrafo de forma natural (ej: "aprobado por unanimidad de los presentes").
 
 ## 5. CIERRE
 Hora de finalización (extraer de la transcripción o indicar "Por determinar").
@@ -1015,18 +1012,15 @@ Lista los temas tratados en orden. Cada punto debe ser claro y numerado:
 ...
 
 ## 4. DESARROLLO DE LA SESIÓN
-Para cada punto del orden del día, describe:
-- Qué se discutió
-- Propuestas presentadas
-- Acuerdos alcanzados
+Para cada punto del orden del día, usa el siguiente formato de enumeración simple:
 
-Incluir para cada acuerdo (si se menciona en transcripción):
-- Votos a favor
-- Votos en contra
-- Abstenciones
-- Resultado (APROBADO/RECHAZADO)
+1. [Título del punto]
+[Descripción breve en prosa de lo que se trató y acordó, sin sub-puntos ni bullets.]
 
-Si no hay información de votación, indicar: "Acuerdo aprobado por unanimidad de los presentes" o "Se requiere completar información de votación".
+2. [Título del siguiente punto]
+[Descripción...]
+
+Y así sucesivamente para todos los puntos. No uses bullets ni sub-secciones dentro de cada punto. Si se alcanzó un acuerdo, menciónalo dentro del párrafo de forma natural (ej: "aprobado por unanimidad de los presentes").
 
 ## 5. CIERRE
 Hora de finalización (extraer de la transcripción o indicar "Por determinar").
